@@ -57,6 +57,27 @@ struct MainVisitor : public TidyVisitor, ASTVisitor<MainVisitor, true, true, fal
             }
         }
     }
+
+    void handle(const RootSymbol& root) {
+        // Check all syntax trees for loops outside generate blocks
+        auto& compilation = root.getCompilation();
+        for (const auto& tree : compilation.getSyntaxTrees()) {
+            LoopVisitor visitor;
+            tree->root().visit(visitor);
+
+            for (const auto& loop : visitor.foundForLoops) {
+                if (!isInsideGenerate(loop)) {
+                    diags.add(diag::LoopsInGenerate, loop->forKeyword.location());
+                }
+            }
+
+            for (const auto& genLoop : visitor.foundGenerateLoops) {
+                if (!isInsideGenerate(genLoop)) {
+                    diags.add(diag::LoopsInGenerate, genLoop->keyword.location());
+                }
+            }
+        }
+    }
 };
 } // namespace loops_in_generate
 
