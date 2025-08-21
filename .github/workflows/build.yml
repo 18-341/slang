@@ -69,3 +69,75 @@ jobs:
       run: cmake --build build/${{ matrix.preset }} -j8
     - name: Run tests
       run: ctest --test-dir build/${{ matrix.preset }} --output-on-failure --no-tests=error -j8
+    - name: Install & Package
+      if: github.ref == 'refs/heads/master' && ${{ !startsWith(matrix.preset, 'wasi-') }}
+      shell: bash
+      run: |
+        # Install into a per-preset prefix
+        cmake --install build/${{ matrix.preset }} --prefix "$PWD/install/${{ matrix.preset }}"
+        mkdir -p dist
+
+        # Name per OS/preset
+        PLATFORM=${{ runner.os }}
+        PRESET=${{ matrix.preset }}
+
+        if [[ "$PLATFORM" == "Windows" ]]; then
+          OUT="slang-${PLATFORM}-${PRESET}.zip"
+          7z a "dist/$OUT" "./install/${PRESET}/*" >/dev/null
+        else
+          OUT="slang-${PLATFORM}-${PRESET}.tar.gz"
+          tar -C "install/${PRESET}" -czf "dist/$OUT" .
+        fi
+
+        # Checksums
+        (cd dist && shasum -a 256 "$OUT" > "${OUT}.sha256" 2>/dev/null || \
+         cd dist && certutil -hashfile "$OUT" SHA256 | sed -n '2p' | tr -d '\r' > "${OUT}.sha256")
+
+    - name: Upload packaged artifact
+      if: github.ref == 'refs/heads/master' && ${{ !startsWith(matrix.preset, 'wasi-') }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: pkg-${{ runner.os }}-${{ matrix.preset }}
+        path: dist/*
+  publish:
+    if: github.ref == 'refs/heads/master'
+    needs: [build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-bundle
+
+      - name: Flatten bundle
+        run: |
+          mkdir -p dist
+          find release-bundle -type f -name '*.tar.gz' -o -name '*.zip' -o -name '*.sha256' -exec cp {} dist/ \;
+          ls -l dist
+
+      - name: Publish master-latest release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: master-latest
+          name: Slang master-latest
+          body: "Automated build from ${{ github.sha }} on ${{ github.ref }}"
+          files: dist/*
+          prerelease: true
+          draft: false
+
+      # Immutable tag for reproducibility: master-<sha>
+      - name: Publish immutable release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: master-${{ github.sha }}
+          name: Slang master-${{ github.sha }}
+          body: "Immutable build for commit ${{ github.sha }}"
+          files: dist/*
+          prerelease: true
+          draft: false
+    concurrency:
+      group: producer-master
+      cancel-in-progress: true
+
