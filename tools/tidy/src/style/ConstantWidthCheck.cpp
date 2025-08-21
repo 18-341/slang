@@ -9,6 +9,7 @@
 #include "TidyDiags.h"
 #include <algorithm>
 #include <cctype>
+#include <optional>
 #include <regex>
 #include <string>
 
@@ -41,11 +42,12 @@ struct MainVisitor : public TidyVisitor, ASTVisitor<MainVisitor, true, true, fal
                     return;
                 }
 
-                uint64_t originalValue = parseValueByBase(valueStr, base);
-                if (originalValue == UINT64_MAX) {
+                auto result = parseValueByBase(valueStr, base);
+                if (!result.has_value()) {
                     return; // Invalid parse
                 }
 
+                uint64_t originalValue = result.value();
                 uint64_t maxVal = (1ULL << declaredWidth) - 1;
 
                 if (originalValue > maxVal) {
@@ -91,16 +93,16 @@ private:
         return true;
     }
 
-    uint64_t parseValueByBase(const std::string& valueStr, char base) {
+    std::optional<uint64_t> parseValueByBase(const std::string& valueStr, char base) {
         if (!isValidForBase(valueStr, base)) {
-            return UINT64_MAX;
+            return std::nullopt;
         }
 
         std::string cleanValue = valueStr;
         cleanValue.erase(std::remove(cleanValue.begin(), cleanValue.end(), '_'), cleanValue.end());
 
         if (cleanValue.empty()) {
-            return UINT64_MAX;
+            return std::nullopt;
         }
 
         uint64_t result = 0;
@@ -120,7 +122,7 @@ private:
                 baseValue = 16;
                 break;
             default:
-                return UINT64_MAX;
+                return std::nullopt;
         }
 
         for (char c : cleanValue) {
@@ -135,15 +137,15 @@ private:
                 digit = c - 'A' + 10;
             }
             else {
-                return UINT64_MAX;
+                return std::nullopt;
             }
 
             if (digit >= baseValue) {
-                return UINT64_MAX;
+                return std::nullopt;
             }
 
             if (result > (UINT64_MAX - digit) / baseValue) {
-                return UINT64_MAX;
+                return std::nullopt;
             }
 
             result = result * baseValue + digit;

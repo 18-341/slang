@@ -47,55 +47,63 @@ private:
         // Add support for other sequence types if needed
         return nullptr;
     }
+
+    // Check if a SyntaxKind represents an identifier-like expression
+    bool isIdentifierLikeExpression(SyntaxKind kind) {
+        return kind == SyntaxKind::IdentifierName || kind == SyntaxKind::IdentifierSelectName ||
+               kind == SyntaxKind::EmptyIdentifierName;
+    }
+
+    // Check if a SyntaxKind is allowed in port connections
+    bool isAllowedInPortConnection(SyntaxKind kind) {
+        return isIdentifierLikeExpression(kind) || kind == SyntaxKind::IntegerLiteralExpression ||
+               kind == SyntaxKind::IntegerVectorExpression ||
+               kind == SyntaxKind::UnbasedUnsizedLiteralExpression ||
+               kind == SyntaxKind::NullLiteralExpression ||
+               kind == SyntaxKind::TimeLiteralExpression ||
+               kind == SyntaxKind::WildcardLiteralExpression ||
+               kind == SyntaxKind::ElementSelectExpression || kind == SyntaxKind::BitSelect ||
+               kind == SyntaxKind::BitType; // BitType can appear in certain port connections
+    }
     void checkExpression(const ExpressionSyntax& expr, std::string_view portName) {
+        SyntaxKind kind = expr.kind;
+
         // Allow simple identifiers (both plain identifiers and identifier selects)
-        // Note: Different types of identifiers have different syntax kinds
-        if (expr.kind == SyntaxKind::IdentifierName ||
-            expr.kind == SyntaxKind::IdentifierSelectName ||
-            static_cast<int>(expr.kind) == 54) { // Another identifier type
+        if (isIdentifierLikeExpression(kind)) {
             return;
         }
 
         // Allow literals and vector literals
-        if (expr.kind == SyntaxKind::IntegerLiteralExpression ||
-            expr.kind == SyntaxKind::IntegerVectorExpression ||
-            expr.kind == SyntaxKind::RealLiteralExpression ||
-            expr.kind == SyntaxKind::StringLiteralExpression ||
-            expr.kind == SyntaxKind::UnbasedUnsizedLiteralExpression ||
-            expr.kind == SyntaxKind::NullLiteralExpression ||
-            expr.kind == SyntaxKind::TimeLiteralExpression ||
-            expr.kind == SyntaxKind::WildcardLiteralExpression) {
+        if (kind == SyntaxKind::IntegerLiteralExpression ||
+            kind == SyntaxKind::IntegerVectorExpression ||
+            kind == SyntaxKind::RealLiteralExpression ||
+            kind == SyntaxKind::StringLiteralExpression ||
+            kind == SyntaxKind::UnbasedUnsizedLiteralExpression ||
+            kind == SyntaxKind::NullLiteralExpression ||
+            kind == SyntaxKind::TimeLiteralExpression ||
+            kind == SyntaxKind::WildcardLiteralExpression) {
             return;
         }
 
         // Allow simple element select (e.g., array[0]) and identifier select (e.g., bus[0])
         // Also allow range selects (e.g., bus[3:0])
-        if (expr.kind == SyntaxKind::ElementSelectExpression ||
-            expr.kind == SyntaxKind::IdentifierSelectName || expr.kind == SyntaxKind::BitSelect) {
+        if (kind == SyntaxKind::ElementSelectExpression ||
+            kind == SyntaxKind::IdentifierSelectName || kind == SyntaxKind::BitSelect ||
+            kind == SyntaxKind::BitType) { // BitType can appear in certain port connections
             return;
         }
 
         // Allow member access (e.g., struct.field)
-        if (expr.kind == SyntaxKind::MemberAccessExpression) {
+        if (kind == SyntaxKind::MemberAccessExpression) {
             return;
         }
 
         // Allow simple concatenations of identifiers/literals
-        if (expr.kind == SyntaxKind::ConcatenationExpression) {
+        if (kind == SyntaxKind::ConcatenationExpression) {
             const auto& concat = expr.as<ConcatenationExpressionSyntax>();
             bool allSimple = true;
             for (const auto& element : concat.expressions) {
-                if (element->kind != SyntaxKind::IdentifierName &&
-                    element->kind != SyntaxKind::IntegerLiteralExpression &&
-                    element->kind != SyntaxKind::IntegerVectorExpression &&
-                    element->kind != SyntaxKind::UnbasedUnsizedLiteralExpression &&
-                    element->kind != SyntaxKind::NullLiteralExpression &&
-                    element->kind != SyntaxKind::TimeLiteralExpression &&
-                    element->kind != SyntaxKind::WildcardLiteralExpression &&
-                    element->kind != SyntaxKind::ElementSelectExpression &&
-                    element->kind != SyntaxKind::IdentifierSelectName &&
-                    element->kind != SyntaxKind::BitSelect &&
-                    static_cast<int>(element->kind) != 54) { // Another identifier type
+                if (!isAllowedInPortConnection(element->kind)) {
                     allSimple = false;
                     break;
                 }

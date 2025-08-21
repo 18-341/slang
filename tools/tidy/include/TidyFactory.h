@@ -49,8 +49,8 @@ public:
     }
 
     /// Lookup the user-specified severity for a check in the config.
-    static auto getSeverity(const slang::TidyKind& kind, const std::string& name)
-        -> std::optional<slang::DiagnosticSeverity> {
+    static auto getSeverity(const slang::TidyKind& kind,
+                            const std::string& name) -> std::optional<slang::DiagnosticSeverity> {
         return config().getCheckSeverity(kind, name);
     }
 

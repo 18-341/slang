@@ -123,7 +123,7 @@ int main(int argc, char** argv) {
         if (includeSkipped == true)
             printer.setIncludeSkipped(true);
 
-        // Make sure we reproduce newlines correctly on Windows:
+            // Make sure we reproduce newlines correctly on Windows:
 #if defined(_WIN32)
         _setmode(_fileno(stdout), _O_BINARY);
 #endif
