@@ -189,7 +189,7 @@ int main(int argc, char** argv) {
     bool compilationOk;
     SLANG_TRY {
         compilationOk = driver.parseAllSources();
-        
+
         // For tidy, we want to force elaboration of all modules even in lint-only mode
         // Override the isLibraryUnit flag for all syntax trees when lint-only is enabled
         if (driver.options.lintMode()) {
@@ -197,7 +197,7 @@ int main(int argc, char** argv) {
                 tree->isLibraryUnit = false;
             }
         }
-        
+
         compilation = driver.createCompilation();
         driver.reportCompilation(*compilation, true);
         analysisManager = driver.runAnalysis(*compilation);
