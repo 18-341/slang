@@ -16,7 +16,7 @@ namespace only_assigned_on_reset {
 struct AlwaysFFVisitor : public ASTVisitor<AlwaysFFVisitor, true, true, false, true> {
     explicit AlwaysFFVisitor(const std::string_view name, const std::string_view resetName,
                              const bool resetIsActiveHigh) :
-        name(name), resetName(resetName), resetIsActiveHigh(resetIsActiveHigh) {};
+        name(name), resetName(resetName), resetIsActiveHigh(resetIsActiveHigh) {}
 
     void handle(const ConditionalStatement& statement) {
         // Early return, if there's no else clause on the conditional statement
