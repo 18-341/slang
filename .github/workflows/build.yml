@@ -71,8 +71,8 @@ jobs:
       - name: Install dependencies (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          sudo add-apt-repository "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-20 main"
+          curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | sudo gpg --dearmor -o /usr/share/keyrings/llvm-archive-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/llvm-archive-keyring.gpg] http://apt.llvm.org/noble/ llvm-toolchain-noble-20 main" | sudo tee /etc/apt/sources.list.d/llvm.list
           sudo add-apt-repository ppa:ubuntu-toolchain-r/test
           sudo apt-get update
           sudo apt-get install -y g++-14 g++-11 clang-20 clang-tidy-20
@@ -88,17 +88,17 @@ jobs:
           xcode-version: 'latest'
 
       - uses: konsumer/install-wasi-sdk@v1
-        if: ${{ startsWith(matrix.preset, 'wasi-') }}
+        if: startsWith(matrix.preset, 'wasi-')
 
       - uses: bytecodealliance/actions/wasmtime/setup@v1
-        if: ${{ startsWith(matrix.preset, 'wasi-') }}
+        if: startsWith(matrix.preset, 'wasi-')
 
       - name: Configure
         if: ${{ !startsWith(matrix.preset, 'wasi-') }}
         run: cmake --preset ${{ matrix.preset }} -DSLANG_CI_BUILD=ON -DSLANG_INCLUDE_UVM_TEST=ON
 
       - name: Configure (WASI)
-        if: ${{ startsWith(matrix.preset, 'wasi-') }}
+        if: startsWith(matrix.preset, 'wasi-')
         run: cmake -B build/${{ matrix.preset }} -DCMAKE_TOOLCHAIN_FILE=${WASI_SDK_PATH}/share/cmake/${{ matrix.preset }}.cmake -DSLANG_USE_THREADS=${{ contains(matrix.preset, 'pthread') && 'ON' || 'OFF' }} -DSLANG_CI_BUILD=ON -DSLANG_INCLUDE_UVM_TEST=ON
 
       - name: Build
@@ -108,7 +108,7 @@ jobs:
         run: ctest --test-dir build/${{ matrix.preset }} --output-on-failure --no-tests=error -j8
 
       - name: Install & Package
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master' && ${{ !startsWith(matrix.preset, 'wasi-') }}
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master' && !startsWith(matrix.preset, 'wasi-')
         shell: bash
         run: |
           set -euo pipefail
@@ -130,7 +130,7 @@ jobs:
           fi
 
       - name: Upload packaged artifact
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master' && ${{ !startsWith(matrix.preset, 'wasi-') }}
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master' && !startsWith(matrix.preset, 'wasi-')
         uses: actions/upload-artifact@v4
         with:
           name: pkg-${{ runner.os }}-${{ matrix.preset }}
