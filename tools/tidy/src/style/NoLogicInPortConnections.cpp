@@ -48,8 +48,11 @@ private:
         return nullptr;
     }
     void checkExpression(const ExpressionSyntax& expr, std::string_view portName) {
-        // Allow simple identifiers
-        if (expr.kind == SyntaxKind::IdentifierName) {
+        // Allow simple identifiers (both plain identifiers and identifier selects)
+        // Note: Different types of identifiers have different syntax kinds
+        if (expr.kind == SyntaxKind::IdentifierName ||
+            expr.kind == SyntaxKind::IdentifierSelectName ||
+            static_cast<int>(expr.kind) == 54) {  // Another identifier type
             return;
         }
         
@@ -66,8 +69,10 @@ private:
         }
         
         // Allow simple element select (e.g., array[0]) and identifier select (e.g., bus[0])
+        // Also allow range selects (e.g., bus[3:0])
         if (expr.kind == SyntaxKind::ElementSelectExpression ||
-            expr.kind == SyntaxKind::IdentifierSelectName) {
+            expr.kind == SyntaxKind::IdentifierSelectName ||
+            expr.kind == SyntaxKind::BitSelect) {
             return;
         }
         
@@ -89,7 +94,9 @@ private:
                     element->kind != SyntaxKind::TimeLiteralExpression &&
                     element->kind != SyntaxKind::WildcardLiteralExpression &&
                     element->kind != SyntaxKind::ElementSelectExpression &&
-                    element->kind != SyntaxKind::IdentifierSelectName) {
+                    element->kind != SyntaxKind::IdentifierSelectName &&
+                    element->kind != SyntaxKind::BitSelect &&
+                    static_cast<int>(element->kind) != 54) {  // Another identifier type
                     allSimple = false;
                     break;
                 }
