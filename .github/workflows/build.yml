@@ -138,4 +138,3 @@ jobs:
     concurrency:
       group: producer-master
       cancel-in-progress: true
-

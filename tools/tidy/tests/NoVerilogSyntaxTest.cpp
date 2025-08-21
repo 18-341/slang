@@ -20,14 +20,14 @@ module top (
     logic [7:0] internal_reg;
     logic enable;
     int counter;
-    
+
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n)
             internal_reg <= 8'h0;
         else if (enable)
             internal_reg <= internal_reg + 1;
     end
-    
+
     always_comb begin
         data_out = internal_reg;
     end
@@ -70,11 +70,11 @@ module top (
     output logic [7:0] data
 );
     logic [7:0] counter;
-    
+
     always @(posedge clk) begin
         counter <= counter + 1;
     end
-    
+
     assign data = counter;
 endmodule
 )");
@@ -87,16 +87,16 @@ module top (clk, rst_n, data_out);
     input clk;
     input rst_n;
     output [7:0] data_out;
-    
+
     logic [7:0] internal_data;
-    
+
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n)
             internal_data <= 8'h0;
         else
             internal_data <= internal_data + 1;
     end
-    
+
     assign data_out = internal_data;
 endmodule
 )");
@@ -108,15 +108,15 @@ TEST_CASE("NoVerilogSyntax: Multiple deprecated constructs") {
 module top (clk, data_out);
     input clk;
     output [7:0] data_out;
-    
+
     wire [7:0] bus_signal;
     reg [7:0] register_signal;
     integer count_var;
-    
+
     always @(posedge clk) begin
         register_signal <= register_signal + 1;
     end
-    
+
     assign bus_signal = register_signal;
     assign data_out = bus_signal;
 endmodule

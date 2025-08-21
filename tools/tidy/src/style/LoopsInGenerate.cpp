@@ -35,10 +35,8 @@ bool isInsideGenerateOrProcedural(const SyntaxNode* node) {
             return true;
         }
         // Allow loops inside procedural blocks (always_*, initial, final)
-        if (node->kind == SyntaxKind::AlwaysBlock || 
-            node->kind == SyntaxKind::AlwaysCombBlock ||
-            node->kind == SyntaxKind::AlwaysFFBlock ||
-            node->kind == SyntaxKind::InitialBlock ||
+        if (node->kind == SyntaxKind::AlwaysBlock || node->kind == SyntaxKind::AlwaysCombBlock ||
+            node->kind == SyntaxKind::AlwaysFFBlock || node->kind == SyntaxKind::InitialBlock ||
             node->kind == SyntaxKind::FinalBlock) {
             return true;
         }

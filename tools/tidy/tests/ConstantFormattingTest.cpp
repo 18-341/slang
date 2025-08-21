@@ -15,7 +15,7 @@ TEST_CASE("ConstantFormatting: Valid constants - 0 and 1 allowed") {
 module top ();
     logic [7:0] data;
     logic enable;
-    
+
     always_comb begin
         enable = 1;
         data = 0;
@@ -85,7 +85,7 @@ module top ();
     logic [7:0] bus;
     logic [15:0] data;
     logic bit_out;
-    
+
     always_comb begin
         bit_out = bus[3];
         data = bus[7:0];

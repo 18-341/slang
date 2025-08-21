@@ -62,7 +62,7 @@ TEST_CASE("LineFormatting: No violations") {
     auto result = runCheckTest("LineFormatting", R"(
 module top ();
     logic a, b, c, d, e;
-    
+
     always_comb begin
         c = a & b;
         d = a | b;

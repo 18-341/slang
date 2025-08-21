@@ -37,7 +37,7 @@ private:
         // Add support for other property types if needed
         return nullptr;
     }
-    
+
     // Extract ExpressionSyntax from SequenceExprSyntax hierarchy
     const ExpressionSyntax* extractExpressionFromSequence(const SequenceExprSyntax& sequence) {
         if (sequence.kind == SyntaxKind::SimpleSequenceExpr) {
@@ -52,10 +52,10 @@ private:
         // Note: Different types of identifiers have different syntax kinds
         if (expr.kind == SyntaxKind::IdentifierName ||
             expr.kind == SyntaxKind::IdentifierSelectName ||
-            static_cast<int>(expr.kind) == 54) {  // Another identifier type
+            static_cast<int>(expr.kind) == 54) { // Another identifier type
             return;
         }
-        
+
         // Allow literals and vector literals
         if (expr.kind == SyntaxKind::IntegerLiteralExpression ||
             expr.kind == SyntaxKind::IntegerVectorExpression ||
@@ -67,20 +67,19 @@ private:
             expr.kind == SyntaxKind::WildcardLiteralExpression) {
             return;
         }
-        
+
         // Allow simple element select (e.g., array[0]) and identifier select (e.g., bus[0])
         // Also allow range selects (e.g., bus[3:0])
         if (expr.kind == SyntaxKind::ElementSelectExpression ||
-            expr.kind == SyntaxKind::IdentifierSelectName ||
-            expr.kind == SyntaxKind::BitSelect) {
+            expr.kind == SyntaxKind::IdentifierSelectName || expr.kind == SyntaxKind::BitSelect) {
             return;
         }
-        
+
         // Allow member access (e.g., struct.field)
         if (expr.kind == SyntaxKind::MemberAccessExpression) {
             return;
         }
-        
+
         // Allow simple concatenations of identifiers/literals
         if (expr.kind == SyntaxKind::ConcatenationExpression) {
             const auto& concat = expr.as<ConcatenationExpressionSyntax>();
@@ -96,7 +95,7 @@ private:
                     element->kind != SyntaxKind::ElementSelectExpression &&
                     element->kind != SyntaxKind::IdentifierSelectName &&
                     element->kind != SyntaxKind::BitSelect &&
-                    static_cast<int>(element->kind) != 54) {  // Another identifier type
+                    static_cast<int>(element->kind) != 54) { // Another identifier type
                     allSimple = false;
                     break;
                 }
@@ -105,7 +104,7 @@ private:
                 return;
             }
         }
-        
+
         // All other expressions are considered logic that should be moved outside
         foundPorts.push_back({&expr, std::string(portName)});
     }
@@ -129,12 +128,13 @@ struct MainVisitor : public TidyVisitor, ASTVisitor<MainVisitor, true, true, fal
 
         PortConnectionVisitor visitor;
         symbol.getSyntax()->visit(visitor);
-        
+
         for (const auto& port : visitor.foundPorts) {
             if (port.expr) {
                 diags.add(diag::NoLogicInPortConnections, port.expr->sourceRange())
-                    << "logic expression in port connection '" + port.portName + 
-                       "' (move logic outside the port instantiation for Quartus compatibility)";
+                    << "logic expression in port connection '" + port.portName +
+                           "' (move logic outside the port instantiation for Quartus "
+                           "compatibility)";
             }
         }
     }
@@ -145,8 +145,8 @@ struct MainVisitor : public TidyVisitor, ASTVisitor<MainVisitor, true, true, fal
 using namespace no_logic_in_port_connections;
 class NoLogicInPortConnections : public TidyCheck {
 public:
-    [[maybe_unused]] explicit NoLogicInPortConnections(TidyKind kind,
-                                                      std::optional<slang::DiagnosticSeverity> severity) :
+    [[maybe_unused]] explicit NoLogicInPortConnections(
+        TidyKind kind, std::optional<slang::DiagnosticSeverity> severity) :
         TidyCheck(kind, severity) {}
 
     bool check(const ast::RootSymbol& root, const slang::analysis::AnalysisManager&) override {
@@ -154,12 +154,10 @@ public:
         root.visit(visitor);
         return diagnostics.empty();
     }
-    
+
     DiagCode diagCode() const override { return diag::NoLogicInPortConnections; }
     DiagnosticSeverity diagDefaultSeverity() const override { return DiagnosticSeverity::Error; }
-    std::string diagString() const override { 
-        return "{}"; 
-    }
+    std::string diagString() const override { return "{}"; }
     std::string name() const override { return "NoLogicInPortConnections"; }
     std::string description() const override { return shortDescription(); }
     std::string shortDescription() const override {

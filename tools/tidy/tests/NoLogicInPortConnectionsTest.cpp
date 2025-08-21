@@ -22,7 +22,7 @@ endmodule
 
 module top();
     logic a, b, c, d;
-    
+
     multiplexer mux(
         .sel(a),
         .I0(b),
@@ -46,7 +46,7 @@ endmodule
 
 module top();
     logic a, b, c, d;
-    
+
     multiplexer mux(
         .sel(a),
         .I0(~a|b),
@@ -70,7 +70,7 @@ endmodule
 module top();
     logic [7:0] bus;
     logic [3:0] result;
-    
+
     test_module tm(
         .data_in(bus[3:0]),
         .data_out(result)
@@ -92,7 +92,7 @@ endmodule
 module top();
     logic [7:0] bus;
     logic bit;
-    
+
     test_module tm(
         .data_in(bus[0]),
         .bit_out(bit)
@@ -114,7 +114,7 @@ endmodule
 module top();
     logic [3:0] a, b;
     logic [7:0] result;
-    
+
     test_module tm(
         .data_in({a, b}),
         .data_out(result)
@@ -136,7 +136,7 @@ endmodule
 
 module top();
     logic [3:0] data, result;
-    
+
     test_module tm(
         .data_in(data),
         .enable(1'b1),

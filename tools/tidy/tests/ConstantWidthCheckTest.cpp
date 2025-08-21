@@ -14,7 +14,7 @@ TEST_CASE("ConstantWidthCheck: Valid constants") {
     auto result = runCheckTest("ConstantWidthCheck", R"(
 module top ();
     logic [3:0] a = 4'hF;     // Valid: 15 fits in 4 bits
-    logic [2:0] b = 3'b101;   // Valid: 5 fits in 3 bits  
+    logic [2:0] b = 3'b101;   // Valid: 5 fits in 3 bits
     logic [3:0] c = 4'd10;    // Valid: 10 fits in 4 bits
     logic [2:0] d = 3'o7;     // Valid: 7 fits in 3 bits
 endmodule

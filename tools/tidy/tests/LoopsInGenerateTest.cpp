@@ -41,7 +41,7 @@ TEST_CASE("LoopsInGenerate: For loop in always block is OK") {
 module top ();
     logic [3:0] data [0:3];
     logic [3:0] sum;
-    
+
     always_comb begin
         sum = 0;
         for (int i = 0; i < 4; i++) begin
@@ -73,13 +73,13 @@ TEST_CASE("LoopsInGenerate: Mix of valid and invalid loops") {
     auto result = runCheckTest("LoopsInGenerate", R"(
 module top ();
     genvar i, j;
-    
+
     generate
         for (i = 0; i < 4; i++) begin : good_loop
             logic signal;
         end
     endgenerate
-    
+
     for (j = 0; j < 2; j++) begin : bad_loop
         logic other_signal;
     end
