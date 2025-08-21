@@ -73,25 +73,23 @@ jobs:
       if: github.ref == 'refs/heads/master' && ${{ !startsWith(matrix.preset, 'wasi-') }}
       shell: bash
       run: |
-        # Install into a per-preset prefix
         cmake --install build/${{ matrix.preset }} --prefix "$PWD/install/${{ matrix.preset }}"
         mkdir -p dist
 
-        # Name per OS/preset
         PLATFORM=${{ runner.os }}
         PRESET=${{ matrix.preset }}
 
         if [[ "$PLATFORM" == "Windows" ]]; then
           OUT="slang-${PLATFORM}-${PRESET}.zip"
           7z a "dist/$OUT" "./install/${PRESET}/*" >/dev/null
+          # Windows checksum
+          powershell -Command "Get-FileHash dist/$OUT -Algorithm SHA256 | ForEach-Object { \$_.Hash }" > "dist/$OUT.sha256"
         else
           OUT="slang-${PLATFORM}-${PRESET}.tar.gz"
           tar -C "install/${PRESET}" -czf "dist/$OUT" .
+          # Linux/macOS checksum
+          shasum -a 256 "dist/$OUT" > "dist/$OUT.sha256"
         fi
-
-        # Checksums
-        (cd dist && shasum -a 256 "$OUT" > "${OUT}.sha256" 2>/dev/null || \
-         cd dist && certutil -hashfile "$OUT" SHA256 | sed -n '2p' | tr -d '\r' > "${OUT}.sha256")
 
     - name: Upload packaged artifact
       if: github.ref == 'refs/heads/master' && ${{ !startsWith(matrix.preset, 'wasi-') }}
