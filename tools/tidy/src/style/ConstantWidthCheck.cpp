@@ -7,6 +7,7 @@
 //------------------------------------------------------------------------------
 #include "ASTHelperVisitors.h"
 #include "TidyDiags.h"
+#include <algorithm>
 #include <cctype>
 #include <regex>
 #include <string>
@@ -58,18 +59,79 @@ struct MainVisitor : public TidyVisitor, ASTVisitor<MainVisitor, true, true, fal
     }
 
 private:
-    uint64_t parseValueByBase(const std::string& valueStr, char base) {
-        switch (base) {
-            case 'b':
-                return std::stoull(valueStr, nullptr, 2);
-            case 'o':
-                return std::stoull(valueStr, nullptr, 8);
-            case 'd':
-                return std::stoull(valueStr, nullptr, 10);
-            case 'h':
-                return std::stoull(valueStr, nullptr, 16);
+    bool isValidForBase(const std::string& valueStr, char base) {
+        if (valueStr.empty()) return false;
+        
+        for (char c : valueStr) {
+            if (c == '_') continue; 
+            
+            switch (base) {
+                case 'b':
+                    if (c != '0' && c != '1') return false;
+                    break;
+                case 'o':
+                    if (c < '0' || c > '7') return false;
+                    break;
+                case 'd':
+                    if (c < '0' || c > '9') return false;
+                    break;
+                case 'h':
+                    if (!std::isxdigit(c)) return false;
+                    break;
+                default:
+                    return false;
+            }
         }
-        return UINT64_MAX; // Invalid base
+        return true;
+    }
+
+    uint64_t parseValueByBase(const std::string& valueStr, char base) {
+        if (!isValidForBase(valueStr, base)) {
+            return UINT64_MAX;
+        }
+        
+        std::string cleanValue = valueStr;
+        cleanValue.erase(std::remove(cleanValue.begin(), cleanValue.end(), '_'), cleanValue.end());
+        
+        if (cleanValue.empty()) {
+            return UINT64_MAX;
+        }
+        
+        uint64_t result = 0;
+        int baseValue;
+        
+        switch (base) {
+            case 'b': baseValue = 2; break;
+            case 'o': baseValue = 8; break;
+            case 'd': baseValue = 10; break;
+            case 'h': baseValue = 16; break;
+            default: return UINT64_MAX;
+        }
+        
+        for (char c : cleanValue) {
+            uint64_t digit;
+            if (c >= '0' && c <= '9') {
+                digit = c - '0';
+            } else if (c >= 'a' && c <= 'f') {
+                digit = c - 'a' + 10;
+            } else if (c >= 'A' && c <= 'F') {
+                digit = c - 'A' + 10;
+            } else {
+                return UINT64_MAX;
+            }
+            
+            if (digit >= baseValue) {
+                return UINT64_MAX;
+            }
+            
+            if (result > (UINT64_MAX - digit) / baseValue) {
+                return UINT64_MAX;
+            }
+            
+            result = result * baseValue + digit;
+        }
+        
+        return result;
     }
 };
 } // namespace constant_width_check
