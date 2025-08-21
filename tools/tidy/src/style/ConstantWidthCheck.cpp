@@ -60,23 +60,29 @@ struct MainVisitor : public TidyVisitor, ASTVisitor<MainVisitor, true, true, fal
 
 private:
     bool isValidForBase(const std::string& valueStr, char base) {
-        if (valueStr.empty()) return false;
-        
+        if (valueStr.empty())
+            return false;
+
         for (char c : valueStr) {
-            if (c == '_') continue; 
-            
+            if (c == '_')
+                continue;
+
             switch (base) {
                 case 'b':
-                    if (c != '0' && c != '1') return false;
+                    if (c != '0' && c != '1')
+                        return false;
                     break;
                 case 'o':
-                    if (c < '0' || c > '7') return false;
+                    if (c < '0' || c > '7')
+                        return false;
                     break;
                 case 'd':
-                    if (c < '0' || c > '9') return false;
+                    if (c < '0' || c > '9')
+                        return false;
                     break;
                 case 'h':
-                    if (!std::isxdigit(c)) return false;
+                    if (!std::isxdigit(c))
+                        return false;
                     break;
                 default:
                     return false;
@@ -89,48 +95,60 @@ private:
         if (!isValidForBase(valueStr, base)) {
             return UINT64_MAX;
         }
-        
+
         std::string cleanValue = valueStr;
         cleanValue.erase(std::remove(cleanValue.begin(), cleanValue.end(), '_'), cleanValue.end());
-        
+
         if (cleanValue.empty()) {
             return UINT64_MAX;
         }
-        
+
         uint64_t result = 0;
         int baseValue;
-        
+
         switch (base) {
-            case 'b': baseValue = 2; break;
-            case 'o': baseValue = 8; break;
-            case 'd': baseValue = 10; break;
-            case 'h': baseValue = 16; break;
-            default: return UINT64_MAX;
+            case 'b':
+                baseValue = 2;
+                break;
+            case 'o':
+                baseValue = 8;
+                break;
+            case 'd':
+                baseValue = 10;
+                break;
+            case 'h':
+                baseValue = 16;
+                break;
+            default:
+                return UINT64_MAX;
         }
-        
+
         for (char c : cleanValue) {
             uint64_t digit;
             if (c >= '0' && c <= '9') {
                 digit = c - '0';
-            } else if (c >= 'a' && c <= 'f') {
+            }
+            else if (c >= 'a' && c <= 'f') {
                 digit = c - 'a' + 10;
-            } else if (c >= 'A' && c <= 'F') {
+            }
+            else if (c >= 'A' && c <= 'F') {
                 digit = c - 'A' + 10;
-            } else {
+            }
+            else {
                 return UINT64_MAX;
             }
-            
+
             if (digit >= baseValue) {
                 return UINT64_MAX;
             }
-            
+
             if (result > (UINT64_MAX - digit) / baseValue) {
                 return UINT64_MAX;
             }
-            
+
             result = result * baseValue + digit;
         }
-        
+
         return result;
     }
 };

@@ -214,7 +214,8 @@ int main(int argc, char** argv) {
             OS::print("\n");
             OS::print(fmt::emphasis::bold, "=== 341 SLANG-TIDY SUMMARY ===\n");
             OS::print(fmt::format(fmt::fg(fmt::color::red), "Compilation: FAILED\n"));
-            OS::print(fmt::format(fmt::emphasis::bold | fmt::fg(fmt::color::red), "Overall: FAILED\n"));
+            OS::print(
+                fmt::format(fmt::emphasis::bold | fmt::fg(fmt::color::red), "Overall: FAILED\n"));
         }
         return 1;
     }
@@ -249,7 +250,7 @@ int main(int argc, char** argv) {
         if (!checkOk) {
             failedChecks++;
             failedRuleNames.push_back(check->name());
-            
+
             // Count diagnostics by severity
             for (const auto& diag : check->getDiagnostics()) {
                 auto severity = driver.diagEngine.getSeverity(diag.code, diag.location);
@@ -314,7 +315,7 @@ int main(int argc, char** argv) {
     if (!superQuiet) {
         OS::print("\n");
         OS::print(fmt::emphasis::bold, "=== 341 SLANG-TIDY SUMMARY ===\n");
-        
+
         // Check results summary
         int totalChecks = passedChecks + failedChecks;
         OS::print(fmt::format("Checks run: {}\n", totalChecks));
@@ -322,7 +323,7 @@ int main(int argc, char** argv) {
         if (failedChecks > 0) {
             OS::print(fmt::format(fmt::fg(fmt::color::red), "Failed: {}\n", failedChecks));
         }
-        
+
         // Diagnostic counts with failed rules
         if (totalErrors > 0 || totalWarnings > 0 || totalNotes > 0) {
             OS::print("\nDiagnostics found:\n");
@@ -330,12 +331,13 @@ int main(int argc, char** argv) {
                 OS::print(fmt::format(fmt::fg(fmt::color::red), "  Errors: {}\n", totalErrors));
             }
             if (totalWarnings > 0) {
-                OS::print(fmt::format(fmt::fg(fmt::color::yellow), "  Warnings: {}\n", totalWarnings));
+                OS::print(
+                    fmt::format(fmt::fg(fmt::color::yellow), "  Warnings: {}\n", totalWarnings));
             }
             if (totalNotes > 0) {
                 OS::print(fmt::format(fmt::fg(fmt::color::cyan), "  Notes: {}\n", totalNotes));
             }
-            
+
             // List failed rules
             if (!failedRuleNames.empty()) {
                 OS::print("\nFailed rules:\n");
@@ -343,7 +345,8 @@ int main(int argc, char** argv) {
                     OS::print(fmt::format(fmt::fg(fmt::color::red), "  - {}\n", ruleName));
                 }
             }
-        } else {
+        }
+        else {
             OS::print(fmt::format(fmt::fg(fmt::color::green), "\nNo diagnostics found!\n"));
         }
     }

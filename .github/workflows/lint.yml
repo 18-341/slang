@@ -61,7 +61,7 @@ jobs:
       run: |
         black --check --diff pyslang/ bindings/python/ scripts/ --exclude "docs/"
 
-    - name: Check Python imports (isort)  
+    - name: Check Python imports (isort)
       run: |
         isort --check-only --diff pyslang/ bindings/python/ scripts/
 
@@ -113,7 +113,7 @@ jobs:
         import yaml
         import sys
         import glob
-        
+
         files = glob.glob('**/*.yml', recursive=True) + glob.glob('**/*.yaml', recursive=True)
         for f in files:
           if 'external/' in f:
