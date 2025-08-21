@@ -40,5 +40,6 @@ inline constexpr DiagCode ConstantFormatting(DiagSubsystem::Tidy, 23);
 inline constexpr DiagCode ConstantWidthCheck(DiagSubsystem::Tidy, 24);
 inline constexpr DiagCode LineFormatting(DiagSubsystem::Tidy, 25);
 inline constexpr DiagCode NoLogicInPortConnections(DiagSubsystem::Tidy, 26);
+inline constexpr DiagCode DefaultNettypeNone(DiagSubsystem::Tidy, 27);
 
 } // namespace slang::diag

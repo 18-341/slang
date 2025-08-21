@@ -44,6 +44,7 @@ TidyConfig::TidyConfig() {
     styleChecks.emplace("ConstantWidthCheck", CheckOptions());
     styleChecks.emplace("LineFormatting", CheckOptions());
     styleChecks.emplace("NoLogicInPortConnections", CheckOptions());
+    styleChecks.emplace("DefaultNettypeNone", CheckOptions());
 
     checkKinds.insert({slang::TidyKind::Style, styleChecks});
 
