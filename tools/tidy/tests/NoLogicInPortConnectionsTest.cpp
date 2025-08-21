@@ -1,5 +1,10 @@
-// SPDX-FileCopyrightText: Michael Popoloski
+//------------------------------------------------------------------------------
+// NoLogicInPortConnectionsTest.cpp
+// Test for no logic in port connections rules
+//
+// SPDX-FileCopyrightText: Perrin Tong
 // SPDX-License-Identifier: MIT
+//------------------------------------------------------------------------------
 
 #include "Test.h"
 #include "TidyFactory.h"

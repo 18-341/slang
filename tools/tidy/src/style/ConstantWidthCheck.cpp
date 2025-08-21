@@ -2,7 +2,7 @@
 // ConstantWidthCheck.cpp
 // Check that constants fit within their declared bit width
 //
-// SPDX-FileCopyrightText: Michael Popoloski
+// SPDX-FileCopyrightText: Perrin Tong
 // SPDX-License-Identifier: MIT
 //------------------------------------------------------------------------------
 #include "ASTHelperVisitors.h"
@@ -40,18 +40,18 @@ struct MainVisitor : public TidyVisitor, ASTVisitor<MainVisitor, true, true, fal
                     return;
                 }
                 
-                try {
-                    uint64_t originalValue = parseValueByBase(valueStr, base);
-                    uint64_t maxVal = (1ULL << declaredWidth) - 1;
-                    
-                    if (originalValue > maxVal) {
-                        diags.add(diag::ConstantWidthCheck, literal.sourceRange)
-                            << std::string("constant value ") + std::to_string(originalValue) + 
-                               " in '" + text + "' overflows " + std::to_string(declaredWidth) + 
-                               "-bit width (max value: " + std::to_string(maxVal) + ")";
-                    }
-                } catch (...) {
-                    return;
+                uint64_t originalValue = parseValueByBase(valueStr, base);
+                if (originalValue == UINT64_MAX) {
+                    return; // Invalid parse
+                }
+                
+                uint64_t maxVal = (1ULL << declaredWidth) - 1;
+                
+                if (originalValue > maxVal) {
+                    diags.add(diag::ConstantWidthCheck, literal.sourceRange)
+                        << std::string("constant value ") + std::to_string(originalValue) + 
+                           " in '" + text + "' overflows " + std::to_string(declaredWidth) + 
+                           "-bit width (max value: " + std::to_string(maxVal) + ")";
                 }
             }
         }
@@ -68,9 +68,8 @@ private:
                 return std::stoull(valueStr, nullptr, 10);
             case 'h': 
                 return std::stoull(valueStr, nullptr, 16);
-            default:
-                throw std::invalid_argument("Unknown base");
         }
+        return UINT64_MAX; // Invalid base
     }
 };
 } // namespace constant_width_check

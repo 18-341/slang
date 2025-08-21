@@ -1,5 +1,10 @@
-// SPDX-FileCopyrightText: Michael Popoloski
+//------------------------------------------------------------------------------
+// DefaultNettypeNoneTest.cpp
+// Test for default_nettype none rules
+//
+// SPDX-FileCopyrightText: Perrin Tong
 // SPDX-License-Identifier: MIT
+//------------------------------------------------------------------------------
 
 #include "Test.h"
 #include "TidyFactory.h"

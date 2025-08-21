@@ -1,5 +1,10 @@
-// SPDX-FileCopyrightText: Michael Popoloski
+//------------------------------------------------------------------------------
+// ConstantWidthCheckTest.cpp
+// Test for constant width checking rules
+//
+// SPDX-FileCopyrightText: Perrin Tong
 // SPDX-License-Identifier: MIT
+//------------------------------------------------------------------------------
 
 #include "Test.h"
 #include "TidyFactory.h"

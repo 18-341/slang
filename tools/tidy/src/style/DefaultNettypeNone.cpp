@@ -1,6 +1,10 @@
-// SPDX-FileCopyrightText: Michael Popoloski
+//------------------------------------------------------------------------------
+// DefaultNettypeNone.cpp
+// Check that `default_nettype none` is specified at the beginning of the file
+//
+// SPDX-FileCopyrightText: Perrin Tong
 // SPDX-License-Identifier: MIT
-// 18-341 Custom Rule - Default Nettype None
+//------------------------------------------------------------------------------
 
 #include "ASTHelperVisitors.h"
 #include "TidyDiags.h"

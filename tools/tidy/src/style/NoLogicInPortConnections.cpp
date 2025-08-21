@@ -2,7 +2,7 @@
 // NoLogicInPortConnections.cpp
 // Check for logic expressions in named port instantiations
 //
-// SPDX-FileCopyrightText: Michael Popoloski
+// SPDX-FileCopyrightText: Perrin Tong
 // SPDX-License-Identifier: MIT
 //------------------------------------------------------------------------------
 #include "ASTHelperVisitors.h"

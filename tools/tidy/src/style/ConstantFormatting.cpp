@@ -1,5 +1,10 @@
+//------------------------------------------------------------------------------
+// ConstantFormatting.cpp
+// Check that constants are properly formatted
+//
+// SPDX-FileCopyrightText: Perrin Tong
 // SPDX-License-Identifier: MIT
-// 18-341 Custom Rule - Constant Formatting
+//------------------------------------------------------------------------------
 
 #include "ASTHelperVisitors.h"
 #include "TidyDiags.h"

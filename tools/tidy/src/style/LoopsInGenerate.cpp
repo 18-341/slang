@@ -1,5 +1,10 @@
+//------------------------------------------------------------------------------
+// LoopsInGenerate.cpp
+// Check for loops not inside generate blocks
+//
+// SPDX-FileCopyrightText: Perrin Tong
 // SPDX-License-Identifier: MIT
-// 18-341 Custom Rule
+//------------------------------------------------------------------------------
 
 #include "ASTHelperVisitors.h"
 #include "TidyDiags.h"

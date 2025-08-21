@@ -1,5 +1,10 @@
-// SPDX-FileCopyrightText: Michael Popoloski
+//------------------------------------------------------------------------------
+// LoopsInGenerateTest.cpp
+// Test for loops in generate blocks
+//
+// SPDX-FileCopyrightText: Perrin Tong
 // SPDX-License-Identifier: MIT
+//------------------------------------------------------------------------------
 
 #include "Test.h"
 #include "TidyFactory.h"

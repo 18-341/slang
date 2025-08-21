@@ -1,5 +1,10 @@
+//------------------------------------------------------------------------------
+// NoVerilogSyntax.cpp
+// Check for usage of Verilog-specific syntax
+//
+// SPDX-FileCopyrightText: Perrin Tong
 // SPDX-License-Identifier: MIT
-// 18-341 Custom Rule
+//------------------------------------------------------------------------------
 
 #include "ASTHelperVisitors.h"
 #include "TidyDiags.h"
