@@ -109,7 +109,11 @@ jobs:
         run: |
           if [[ "${{ matrix.preset }}" == win64-debug* && "${{ matrix.os }}" == "windows-latest" ]]; then
             # Disable sccache for Windows debug builds to avoid PDB conflicts
+            unset CMAKE_C_COMPILER_LAUNCHER
+            unset CMAKE_CXX_COMPILER_LAUNCHER
             cmake --preset ${{ matrix.preset }} \
+                  -DCMAKE_C_COMPILER_LAUNCHER= \
+                  -DCMAKE_CXX_COMPILER_LAUNCHER= \
                   -DSLANG_CI_BUILD=ON -DSLANG_INCLUDE_UVM_TEST=ON
           else
             cmake --preset ${{ matrix.preset }} \
