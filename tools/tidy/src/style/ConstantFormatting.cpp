@@ -221,7 +221,7 @@ public:
     }
 
     DiagCode diagCode() const override { return diag::ConstantFormatting; }
-    DiagnosticSeverity diagDefaultSeverity() const override { return DiagnosticSeverity::Error; }
+    DiagnosticSeverity diagDefaultSeverity() const override { return DiagnosticSeverity::Warning; }
     std::string diagString() const override { return "improper constant formatting: {}"; }
     std::string name() const override { return "ConstantFormatting"; }
     std::string description() const override { return shortDescription(); }

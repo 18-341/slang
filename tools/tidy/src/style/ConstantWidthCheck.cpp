@@ -170,7 +170,7 @@ public:
     }
 
     DiagCode diagCode() const override { return diag::ConstantWidthCheck; }
-    DiagnosticSeverity diagDefaultSeverity() const override { return DiagnosticSeverity::Error; }
+    DiagnosticSeverity diagDefaultSeverity() const override { return DiagnosticSeverity::Warning; }
     std::string diagString() const override { return "constant range check: {}"; }
     std::string name() const override { return "ConstantWidthCheck"; }
     std::string description() const override { return shortDescription(); }

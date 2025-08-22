@@ -164,7 +164,7 @@ public:
     }
 
     DiagCode diagCode() const override { return diag::NoLogicInPortConnections; }
-    DiagnosticSeverity diagDefaultSeverity() const override { return DiagnosticSeverity::Error; }
+    DiagnosticSeverity diagDefaultSeverity() const override { return DiagnosticSeverity::Warning; }
     std::string diagString() const override { return "{}"; }
     std::string name() const override { return "NoLogicInPortConnections"; }
     std::string description() const override { return shortDescription(); }

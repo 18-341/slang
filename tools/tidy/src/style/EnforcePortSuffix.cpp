@@ -66,7 +66,7 @@ public:
     }
 
     DiagCode diagCode() const override { return diag::EnforcePortSuffix; }
-    DiagnosticSeverity diagDefaultSeverity() const override { return DiagnosticSeverity::Error; }
+    DiagnosticSeverity diagDefaultSeverity() const override { return DiagnosticSeverity::Warning; }
     std::string diagString() const override {
         return "port '{}' is not correctly suffixed with suffix: {}";
     }

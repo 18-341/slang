@@ -98,7 +98,7 @@ public:
     }
 
     DiagCode diagCode() const override { return diag::LineFormatting; }
-    DiagnosticSeverity diagDefaultSeverity() const override { return DiagnosticSeverity::Error; }
+    DiagnosticSeverity diagDefaultSeverity() const override { return DiagnosticSeverity::Warning; }
     std::string diagString() const override { return "line formatting issue: {}"; }
     std::string name() const override { return "LineFormatting"; }
     std::string description() const override { return shortDescription(); }

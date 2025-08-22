@@ -57,7 +57,7 @@ public:
 
     std::string diagString() const override { return "use of old always verilog syntax"; }
 
-    DiagnosticSeverity diagDefaultSeverity() const override { return DiagnosticSeverity::Error; }
+    DiagnosticSeverity diagDefaultSeverity() const override { return DiagnosticSeverity::Warning; }
 
     std::string name() const override { return "NoOldAlwaysSyntax"; }
 
