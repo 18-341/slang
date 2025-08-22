@@ -107,10 +107,16 @@ jobs:
         if: ${{ !startsWith(matrix.preset, 'wasi-') }}
         shell: bash
         run: |
-          cmake --preset ${{ matrix.preset }} \
-                -DCMAKE_C_COMPILER_LAUNCHER=${{ env.CMAKE_C_COMPILER_LAUNCHER }} \
-                -DCMAKE_CXX_COMPILER_LAUNCHER=${{ env.CMAKE_CXX_COMPILER_LAUNCHER }} \
-                -DSLANG_CI_BUILD=ON -DSLANG_INCLUDE_UVM_TEST=ON
+          if [[ "${{ matrix.preset }}" == win64-debug* && "${{ matrix.os }}" == "windows-latest" ]]; then
+            # Disable sccache for Windows debug builds to avoid PDB conflicts
+            cmake --preset ${{ matrix.preset }} \
+                  -DSLANG_CI_BUILD=ON -DSLANG_INCLUDE_UVM_TEST=ON
+          else
+            cmake --preset ${{ matrix.preset }} \
+                  -DCMAKE_C_COMPILER_LAUNCHER=${{ env.CMAKE_C_COMPILER_LAUNCHER }} \
+                  -DCMAKE_CXX_COMPILER_LAUNCHER=${{ env.CMAKE_CXX_COMPILER_LAUNCHER }} \
+                  -DSLANG_CI_BUILD=ON -DSLANG_INCLUDE_UVM_TEST=ON
+          fi
 
       - name: Configure (WASI)
         if: startsWith(matrix.preset, 'wasi-')
@@ -124,7 +130,13 @@ jobs:
                 -DSLANG_CI_BUILD=ON -DSLANG_INCLUDE_UVM_TEST=ON
 
       - name: Build
-        run: cmake --build build/${{ matrix.preset }} -j8
+        shell: bash
+        run: |
+          if [[ "${{ matrix.preset }}" == win64-debug* && "${{ matrix.os }}" == "windows-latest" ]]; then
+            cmake --build build/${{ matrix.preset }} -j4
+          else
+            cmake --build build/${{ matrix.preset }} -j8
+          fi
 
       - name: Run tests
         run: ctest --test-dir build/${{ matrix.preset }} --output-on-failure --no-tests=error -j8
