@@ -156,7 +156,7 @@ jobs:
                 -DSLANG_CI_BUILD=ON -DSLANG_INCLUDE_UVM_TEST=OFF
 
       - name: Build (canonical)
-        run: cmake --build build/${PRESET} --target slang-tidy -j8
+        run: cmake --build build/${PRESET} -j8
 
       - name: Install & Package (canonical)
         shell: bash
@@ -217,7 +217,7 @@ jobs:
                 -DSLANG_CI_BUILD=ON -DSLANG_INCLUDE_UVM_TEST=OFF
 
       - name: Build (canonical)
-        run: cmake --build build/${PRESET} --target slang-tidy -j8
+        run: cmake --build build/${PRESET} -j8
 
       - name: Install & Package (canonical)
         shell: bash
@@ -262,16 +262,10 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.3
 
       - name: Configure (canonical)
-        shell: bash
-        run: |
-          cmake --preset ${PRESET} \
-                -DCMAKE_C_COMPILER_LAUNCHER=${{ env.CMAKE_C_COMPILER_LAUNCHER }} \
-                -DCMAKE_CXX_COMPILER_LAUNCHER=${{ env.CMAKE_CXX_COMPILER_LAUNCHER }} \
-                -DSLANG_CI_BUILD=ON -DSLANG_INCLUDE_UVM_TEST=OFF
+        run: cmake --preset ${{ env.PRESET }} -DCMAKE_C_COMPILER_LAUNCHER=${{ env.CMAKE_C_COMPILER_LAUNCHER }} -DCMAKE_CXX_COMPILER_LAUNCHER=${{ env.CMAKE_CXX_COMPILER_LAUNCHER }} -DSLANG_CI_BUILD=ON -DSLANG_INCLUDE_UVM_TEST=OFF
 
       - name: Build (canonical)
-        run: cmake --build build/%PRESET% --target slang-tidy -j8
-        shell: cmd
+        run: cmake --build build/${{ env.PRESET }} -j8
 
       - name: Install & Package (canonical)
         shell: bash
