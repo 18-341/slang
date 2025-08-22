@@ -2,7 +2,7 @@
 // LineFormatting.cpp
 // Check for line length (80 characters max) and tab characters
 //
-// SPDX-FileCopyrightText: Michael Popoloski
+// SPDX-FileCopyrightText: Perrin Tong
 // SPDX-License-Identifier: MIT
 //------------------------------------------------------------------------------
 #include "ASTHelperVisitors.h"

@@ -733,7 +733,7 @@ public:
 
 class PlaTask : public SystemTaskBase {
 public:
-    PlaTask(KnownSystemName knownNameId) : SystemTaskBase(knownNameId) {};
+    PlaTask(KnownSystemName knownNameId) : SystemTaskBase(knownNameId) {}
 
     const Type& checkArguments(const ASTContext& context, const Args& args, SourceRange range,
                                const Expression*) const final {

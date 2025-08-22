@@ -210,6 +210,13 @@ int main(int argc, char** argv) {
 
     if (!compilationOk) {
         OS::printE("slang-tidy: errors found during compilation\n");
+        if (!superQuiet) {
+            OS::print("\n");
+            OS::print(fmt::emphasis::bold, "=== 341 SLANG-TIDY SUMMARY ===\n");
+            OS::print(fmt::format(fmt::fg(fmt::color::red), "Compilation: FAILED\n"));
+            OS::print(
+                fmt::format(fmt::emphasis::bold | fmt::fg(fmt::color::red), "Overall: FAILED\n"));
+        }
         return 1;
     }
 
@@ -219,6 +226,12 @@ int main(int argc, char** argv) {
     Registry::setSourceManager(compilation->getSourceManager());
 
     int retCode = 0;
+    int totalErrors = 0;
+    int totalWarnings = 0;
+    int totalNotes = 0;
+    int passedChecks = 0;
+    int failedChecks = 0;
+    std::vector<std::string> failedRuleNames;
 
     // Check all enabled checks
     auto& tdc = *driver.textDiagClient;
@@ -235,6 +248,27 @@ int main(int argc, char** argv) {
 
         auto checkOk = check->check(compilation->getRoot(), *analysisManager);
         if (!checkOk) {
+            failedChecks++;
+            failedRuleNames.push_back(check->name());
+
+            // Count diagnostics by severity
+            for (const auto& diag : check->getDiagnostics()) {
+                auto severity = driver.diagEngine.getSeverity(diag.code, diag.location);
+                switch (severity) {
+                    case DiagnosticSeverity::Note:
+                        totalNotes++;
+                        break;
+                    case DiagnosticSeverity::Warning:
+                        totalWarnings++;
+                        break;
+                    case DiagnosticSeverity::Error:
+                    case DiagnosticSeverity::Fatal:
+                        totalErrors++;
+                        break;
+                    default:
+                        break;
+                }
+            }
 
             if (!quiet) {
                 if (check->diagSeverity() == DiagnosticSeverity::Ignored) {
@@ -271,8 +305,49 @@ int main(int argc, char** argv) {
             }
         }
         else {
+            passedChecks++;
             if (!quiet)
                 OS::print(fmt::emphasis::bold | fmt::fg(fmt::color::green), " PASS\n");
+        }
+    }
+
+    // Print summary unless in super quiet mode
+    if (!superQuiet) {
+        OS::print("\n");
+        OS::print(fmt::emphasis::bold, "=== 341 SLANG-TIDY SUMMARY ===\n");
+
+        // Check results summary
+        int totalChecks = passedChecks + failedChecks;
+        OS::print(fmt::format("Checks run: {}\n", totalChecks));
+        OS::print(fmt::format(fmt::fg(fmt::color::green), "Passed: {}\n", passedChecks));
+        if (failedChecks > 0) {
+            OS::print(fmt::format(fmt::fg(fmt::color::red), "Failed: {}\n", failedChecks));
+        }
+
+        // Diagnostic counts with failed rules
+        if (totalErrors > 0 || totalWarnings > 0 || totalNotes > 0) {
+            OS::print("\nDiagnostics found:\n");
+            if (totalErrors > 0) {
+                OS::print(fmt::format(fmt::fg(fmt::color::red), "  Errors: {}\n", totalErrors));
+            }
+            if (totalWarnings > 0) {
+                OS::print(
+                    fmt::format(fmt::fg(fmt::color::yellow), "  Warnings: {}\n", totalWarnings));
+            }
+            if (totalNotes > 0) {
+                OS::print(fmt::format(fmt::fg(fmt::color::cyan), "  Notes: {}\n", totalNotes));
+            }
+
+            // List failed rules
+            if (!failedRuleNames.empty()) {
+                OS::print("\nFailed rules:\n");
+                for (const auto& ruleName : failedRuleNames) {
+                    OS::print(fmt::format(fmt::fg(fmt::color::red), "  - {}\n", ruleName));
+                }
+            }
+        }
+        else {
+            OS::print(fmt::format(fmt::fg(fmt::color::green), "\nNo diagnostics found!\n"));
         }
     }
 

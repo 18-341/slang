@@ -2,7 +2,6 @@ slang - SystemVerilog Language Services
 =======================================
 ### This is a fork of [slang](https://github.com/MikePopoloski/slang) for CMU's 18-341 with custom rules built for the class.
 ![](https://github.com/18-341/slang/workflows/CI%20Build/badge.svg)
-[![codecov](https://codecov.io/gh/18-341/slang/branch/master/graph/badge.svg)](https://codecov.io/gh/MikePopoloski/slang)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/MikePopoloski/slang/blob/master/LICENSE)
 
 Full documentation of the original slang is available on the [website](https://sv-lang.com)

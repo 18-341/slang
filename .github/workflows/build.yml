@@ -4,8 +4,34 @@ on:
   workflow_dispatch:
   push:
     branches: [ master ]
+    paths:
+      - 'source/**'          
+      - 'include/**'          
+      - 'tools/**'         
+      - 'bindings/**'     
+      - 'tests/**'            
+      - 'external/**'       
+      - 'CMakeLists.txt'     
+      - 'cmake/**'           
+      - 'CMakePresets.json'   
+      - '.github/workflows/build.yml'
   pull_request:
     branches: [ master ]
+    paths:
+      - 'source/**'          
+      - 'include/**'          
+      - 'tools/**'         
+      - 'bindings/**'     
+      - 'tests/**'            
+      - 'external/**'       
+      - 'CMakeLists.txt'     
+      - 'cmake/**'           
+      - 'CMakePresets.json'   
+      - '.github/workflows/build.yml'  
+
+concurrency:
+  group: producer-master
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -38,34 +64,112 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-    - name: Install dependencies
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-        sudo add-apt-repository "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-20 main"
-        sudo add-apt-repository ppa:ubuntu-toolchain-r/test
-        sudo apt-get update
-        sudo apt-get install -y g++-14 g++-11 clang-20 clang-tidy-20
-    - uses: ilammy/msvc-dev-cmd@v1
-      if: matrix.os == 'windows-latest'
-    - uses: maxim-lobanov/setup-xcode@v1
-      if: matrix.os == 'macos-latest'
-      with:
-        xcode-version: 'latest'
-    - uses: konsumer/install-wasi-sdk@v1
-      if: ${{ startsWith(matrix.preset, 'wasi-') }}
-    - uses: bytecodealliance/actions/wasmtime/setup@v1
-      if: ${{ startsWith(matrix.preset, 'wasi-') }}
-    - name: Configure
-      run: cmake --preset ${{ matrix.preset }} -DSLANG_CI_BUILD=ON -DSLANG_INCLUDE_UVM_TEST=ON
-      if: ${{ !startsWith(matrix.preset, 'wasi-') }}
-    - name: Configure
-      run: cmake -B build/${{ matrix.preset }} -DCMAKE_TOOLCHAIN_FILE=${WASI_SDK_PATH}/share/cmake/${{ matrix.preset }}.cmake -DSLANG_USE_THREADS=${{ contains(matrix.preset, 'pthread') && 'ON' || 'OFF' }} -DSLANG_CI_BUILD=ON -DSLANG_INCLUDE_UVM_TEST=ON
-      if: ${{ startsWith(matrix.preset, 'wasi-') }}
-    - name: Build
-      run: cmake --build build/${{ matrix.preset }} -j8
-    - name: Run tests
-      run: ctest --test-dir build/${{ matrix.preset }} --output-on-failure --no-tests=error -j8
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | sudo gpg --dearmor -o /usr/share/keyrings/llvm-archive-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/llvm-archive-keyring.gpg] http://apt.llvm.org/noble/ llvm-toolchain-noble-20 main" | sudo tee /etc/apt/sources.list.d/llvm.list
+          sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+          sudo apt-get update
+          sudo apt-get install -y g++-14 g++-11 clang-20 clang-tidy-20
+
+      - name: MSVC env (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Setup Xcode (macOS)
+        if: matrix.os == 'macos-latest'
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: 'latest'
+
+      - uses: konsumer/install-wasi-sdk@v1
+        if: startsWith(matrix.preset, 'wasi-')
+
+      - uses: bytecodealliance/actions/wasmtime/setup@v1
+        if: startsWith(matrix.preset, 'wasi-')
+
+      - name: Configure
+        if: ${{ !startsWith(matrix.preset, 'wasi-') }}
+        run: cmake --preset ${{ matrix.preset }} -DSLANG_CI_BUILD=ON -DSLANG_INCLUDE_UVM_TEST=ON
+
+      - name: Configure (WASI)
+        if: startsWith(matrix.preset, 'wasi-')
+        run: cmake -B build/${{ matrix.preset }} -DCMAKE_TOOLCHAIN_FILE=${WASI_SDK_PATH}/share/cmake/${{ matrix.preset }}.cmake -DSLANG_USE_THREADS=${{ contains(matrix.preset, 'pthread') && 'ON' || 'OFF' }} -DSLANG_CI_BUILD=ON -DSLANG_INCLUDE_UVM_TEST=ON
+
+      - name: Build
+        run: cmake --build build/${{ matrix.preset }} -j8
+
+      - name: Run tests
+        run: ctest --test-dir build/${{ matrix.preset }} --output-on-failure --no-tests=error -j8
+
+      - name: Install & Package
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master' && !startsWith(matrix.preset, 'wasi-')
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmake --install build/${{ matrix.preset }} --prefix "$PWD/install/${{ matrix.preset }}"
+          mkdir -p dist
+          PLATFORM=${{ runner.os }}
+          PRESET=${{ matrix.preset }}
+
+          if [[ "$PLATFORM" == "Windows" ]]; then
+            OUT="slang-${PLATFORM}-${PRESET}.zip"
+            7z a "dist/$OUT" "./install/${PRESET}/*" >/dev/null
+            # Windows checksum via PowerShell
+            pwsh -Command "(Get-FileHash 'dist/$OUT' -Algorithm SHA256).Hash | Out-File -NoNewline 'dist/$OUT.sha256'"
+          else
+            OUT="slang-${PLATFORM}-${PRESET}.tar.gz"
+            tar -C "install/${PRESET}" -czf "dist/$OUT" .
+            # Linux/macOS checksum
+            shasum -a 256 "dist/$OUT" > "dist/$OUT.sha256"
+          fi
+
+      - name: Upload packaged artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master' && !startsWith(matrix.preset, 'wasi-')
+        uses: actions/upload-artifact@v4
+        with:
+          name: pkg-${{ runner.os }}-${{ matrix.preset }}
+          path: dist/*
+
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: [build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-bundle
+
+      - name: Flatten bundle
+        run: |
+          mkdir -p dist
+          find release-bundle -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.sha256' \) -exec cp {} dist/ \;
+          ls -l dist
+
+      - name: Publish moving release (master-latest)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: master-latest
+          name: 341 Slang master-latest
+          body: "Automated build from ${{ github.sha }} on branch ${{ github.ref }}."
+          files: dist/*
+          prerelease: true
+          draft: false
+
+      - name: Publish immutable release (master-<sha>)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: master-${{ github.sha }}
+          name: 341 Slang master-${{ github.sha }}
+          body: "Immutable build for commit ${{ github.sha }}."
+          files: dist/*
+          prerelease: true
+          draft: false
