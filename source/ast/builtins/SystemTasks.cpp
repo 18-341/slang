@@ -998,6 +998,7 @@ void Builtins::registerSystemTasks() {
     TASK(KnownSystemName::Save, 1, &stringType);
     TASK(KnownSystemName::Restart, 1, &stringType);
     TASK(KnownSystemName::IncSave, 1, &stringType);
+    TASK(KnownSystemName::SRandom, 1, &intType);
     TASK(KnownSystemName::ShowScopes, 0, &intType);
 
 #undef TASK

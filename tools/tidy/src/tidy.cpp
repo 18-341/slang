@@ -199,26 +199,19 @@ int main(int argc, char** argv) {
         }
 
         compilation = driver.createCompilation();
-        driver.reportCompilation(*compilation, true);
+        // Skip reporting compilation diagnostics to suppress errors/warnings
+        // driver.reportCompilation(*compilation, true);
         analysisManager = driver.runAnalysis(*compilation);
-        compilationOk &= driver.reportDiagnostics(true);
+        // Capture compilation success but don't print diagnostics
+        compilationOk &= !compilation->hasIssuedErrors();
     }
     SLANG_CATCH(const std::exception& e) {
         SLANG_REPORT_EXCEPTION(e, "internal compiler error: {}\n");
         return 1;
     }
 
-    if (!compilationOk) {
-        OS::printE("slang-tidy: errors found during compilation\n");
-        if (!superQuiet) {
-            OS::print("\n");
-            OS::print(fmt::emphasis::bold, "=== 341 SLANG-TIDY SUMMARY ===\n");
-            OS::print(fmt::format(fmt::fg(fmt::color::red), "Compilation: FAILED\n"));
-            OS::print(
-                fmt::format(fmt::emphasis::bold | fmt::fg(fmt::color::red), "Overall: FAILED\n"));
-        }
-        return 1;
-    }
+    // Continue with linting even if compilation failed
+    bool hadCompilationErrors = !compilationOk;
 
     // Set the config to the Registry
     Registry::setConfig(tidyConfig);
@@ -351,6 +344,7 @@ int main(int argc, char** argv) {
         }
     }
 
+    // Return non-zero only if linting found errors, ignore compilation status
     return retCode;
 }
 

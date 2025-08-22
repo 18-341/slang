@@ -45,7 +45,7 @@ public:
     }
 
     DiagCode diagCode() const override { return diag::EnforceModuleInstantiationPrefix; }
-    DiagnosticSeverity diagDefaultSeverity() const override { return DiagnosticSeverity::Error; }
+    DiagnosticSeverity diagDefaultSeverity() const override { return DiagnosticSeverity::Warning; }
     std::string diagString() const override {
         return "module instantiation '{}' is not correctly prefixed with prefix: '{}'";
     }

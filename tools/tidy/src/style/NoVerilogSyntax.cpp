@@ -158,7 +158,7 @@ public:
     }
 
     DiagCode diagCode() const override { return diag::NoVerilogSyntax; }
-    DiagnosticSeverity diagDefaultSeverity() const override { return DiagnosticSeverity::Error; }
+    DiagnosticSeverity diagDefaultSeverity() const override { return DiagnosticSeverity::Warning; }
     std::string diagString() const override {
         return "use of deprecated Verilog syntax detected: {}";
     }

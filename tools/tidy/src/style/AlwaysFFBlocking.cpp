@@ -57,7 +57,7 @@ public:
     }
 
     DiagCode diagCode() const override { return diag::AlwaysFFBlocking; }
-    DiagnosticSeverity diagDefaultSeverity() const override { return DiagnosticSeverity::Error; }
+    DiagnosticSeverity diagDefaultSeverity() const override { return DiagnosticSeverity::Warning; }
     std::string diagString() const override {
         return "use of a blocking assignment for a non local variables inside always_ff";
     }

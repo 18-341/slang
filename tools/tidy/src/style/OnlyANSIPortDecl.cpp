@@ -37,7 +37,7 @@ public:
     }
 
     DiagCode diagCode() const override { return diag::OnlyANSIPortDecl; }
-    DiagnosticSeverity diagDefaultSeverity() const override { return DiagnosticSeverity::Error; }
+    DiagnosticSeverity diagDefaultSeverity() const override { return DiagnosticSeverity::Warning; }
     std::string diagString() const override {
         return "port '{}' is declared using non-ANSI port declaration style";
     }

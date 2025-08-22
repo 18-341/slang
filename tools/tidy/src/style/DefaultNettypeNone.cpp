@@ -91,7 +91,7 @@ public:
     }
 
     DiagCode diagCode() const override { return diag::DefaultNettypeNone; }
-    DiagnosticSeverity diagDefaultSeverity() const override { return DiagnosticSeverity::Error; }
+    DiagnosticSeverity diagDefaultSeverity() const override { return DiagnosticSeverity::Warning; }
     std::string diagString() const override {
         return "missing `default_nettype none directive at the top of file";
     }

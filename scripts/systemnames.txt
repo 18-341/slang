@@ -106,6 +106,7 @@ $time Time
 $stime STime
 $realtime RealTime
 $random Random
+$srandom SRandom
 $urandom URandom
 $urandom_range URandomRange
 $reset_count ResetCount
