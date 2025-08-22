@@ -16,7 +16,7 @@ using namespace slang::analysis;
 namespace always_ff_assignment_outside_conditional {
 struct AlwaysFFVisitor : public ASTVisitor<AlwaysFFVisitor, true, true, false, true> {
     explicit AlwaysFFVisitor(const std::string_view name, const std::string_view resetName) :
-        name(name), resetName(resetName) {};
+        name(name), resetName(resetName) {}
 
     void handle(const ConditionalStatement& statement) {
         // Early return, if there's no else clause on the conditional statement

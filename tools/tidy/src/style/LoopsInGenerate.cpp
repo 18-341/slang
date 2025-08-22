@@ -1,5 +1,10 @@
+//------------------------------------------------------------------------------
+// LoopsInGenerate.cpp
+// Check for loops not inside generate blocks
+//
+// SPDX-FileCopyrightText: Perrin Tong
 // SPDX-License-Identifier: MIT
-// 18-341 Custom Rule
+//------------------------------------------------------------------------------
 
 #include "ASTHelperVisitors.h"
 #include "TidyDiags.h"
@@ -24,9 +29,15 @@ public:
     std::vector<const LoopGenerateSyntax*> foundGenerateLoops;
 };
 
-bool isInsideGenerate(const SyntaxNode* node) {
+bool isInsideGenerateOrProcedural(const SyntaxNode* node) {
     while (node) {
         if (node->kind == SyntaxKind::GenerateRegion || node->kind == SyntaxKind::GenerateBlock) {
+            return true;
+        }
+        // Allow loops inside procedural blocks (always_*, initial, final)
+        if (node->kind == SyntaxKind::AlwaysBlock || node->kind == SyntaxKind::AlwaysCombBlock ||
+            node->kind == SyntaxKind::AlwaysFFBlock || node->kind == SyntaxKind::InitialBlock ||
+            node->kind == SyntaxKind::FinalBlock) {
             return true;
         }
         node = node->parent;
@@ -46,13 +57,13 @@ struct MainVisitor : public TidyVisitor, ASTVisitor<MainVisitor, true, true, fal
         symbol.getSyntax()->visit(visitor);
 
         for (const auto& loop : visitor.foundForLoops) {
-            if (!isInsideGenerate(loop)) {
+            if (!isInsideGenerateOrProcedural(loop)) {
                 diags.add(diag::LoopsInGenerate, loop->forKeyword.location());
             }
         }
 
         for (const auto& genLoop : visitor.foundGenerateLoops) {
-            if (!isInsideGenerate(genLoop)) {
+            if (!isInsideGenerateOrProcedural(genLoop)) {
                 diags.add(diag::LoopsInGenerate, genLoop->keyword.location());
             }
         }
@@ -66,13 +77,13 @@ struct MainVisitor : public TidyVisitor, ASTVisitor<MainVisitor, true, true, fal
             tree->root().visit(visitor);
 
             for (const auto& loop : visitor.foundForLoops) {
-                if (!isInsideGenerate(loop)) {
+                if (!isInsideGenerateOrProcedural(loop)) {
                     diags.add(diag::LoopsInGenerate, loop->forKeyword.location());
                 }
             }
 
             for (const auto& genLoop : visitor.foundGenerateLoops) {
-                if (!isInsideGenerate(genLoop)) {
+                if (!isInsideGenerateOrProcedural(genLoop)) {
                     diags.add(diag::LoopsInGenerate, genLoop->keyword.location());
                 }
             }

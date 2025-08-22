@@ -29,7 +29,14 @@ add_executable(
   AlwaysFFAssignmentOutsideConditionalTest.cpp
   UnusedSensitiveSignalTest.cpp
   PrintConfigTest.cpp
-  UndrivenRangeTest.cpp)
+  UndrivenRangeTest.cpp
+  ConstantWidthCheckTest.cpp
+  LineFormattingTest.cpp
+  NoLogicInPortConnectionsTest.cpp
+  LoopsInGenerateTest.cpp
+  DefaultNettypeNoneTest.cpp
+  NoVerilogSyntaxTest.cpp
+  ConstantFormattingTest.cpp)
 
 target_link_libraries(tidy_unittests PRIVATE Catch2::Catch2 slang_tidy_obj_lib)
 target_compile_definitions(tidy_unittests PRIVATE UNITTESTS)

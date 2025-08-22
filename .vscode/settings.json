@@ -7,6 +7,7 @@
     "*.py": "python",
     "string": "cpp",
     "__hash_table": "cpp",
-    "vector": "cpp"
+    "vector": "cpp",
+    "__locale": "cpp"
   },
 }

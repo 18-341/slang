@@ -2,4 +2,5 @@ Checks:
  -style-enforce-port-suffix,
  -synthesis-unused-sensitive-signal,
  -style-no-legacy-generate,
- -style-always-comb-block-named
+ -style-always-comb-block-named,
+ -style-enforce-module-instantiation-prefix

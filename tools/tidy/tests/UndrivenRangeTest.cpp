@@ -23,7 +23,7 @@ endmodule
     CHECK_FALSE(result);
 
     CHECK("\n" + output == R"(
-source:3:15: warning: [SYNTHESIS-20] variable a has undriven bits: 1
+source:3:15: error: [SYNTHESIS-20] variable a has undriven bits: 1
   logic [1:0] a;
               ^
 )");
@@ -46,7 +46,7 @@ endmodule
     CHECK_FALSE(result);
 
     CHECK("\n" + output == R"(
-source:3:16: warning: [SYNTHESIS-20] variable a has undriven bits: 8:10, 12:29, 31
+source:3:16: error: [SYNTHESIS-20] variable a has undriven bits: 8:10, 12:29, 31
   logic [31:0] a;
                ^
 )");
