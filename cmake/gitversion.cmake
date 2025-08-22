@@ -163,7 +163,10 @@ function(get_git_version _patch _hash)
                          "${_version_string}")
     string(REGEX REPLACE ".*-([0-9]+)-g([0-9a-z]+).*" "\\2" local_hash
                          "${_version_string}")
-    message(STATUS "Using master-hash-N-gHASH pattern, patch=${local_patch}, hash=${local_hash}")
+    message(
+      STATUS
+        "Using master-hash-N-gHASH pattern, patch=${local_patch}, hash=${local_hash}"
+    )
   else()
     set(local_patch 0)
     execute_process(
@@ -171,7 +174,8 @@ function(get_git_version _patch _hash)
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
       OUTPUT_VARIABLE local_hash
       ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
-    message(STATUS "Using fallback pattern, patch=${local_patch}, hash=${local_hash}")
+    message(
+      STATUS "Using fallback pattern, patch=${local_patch}, hash=${local_hash}")
   endif()
 
   set(${_patch}

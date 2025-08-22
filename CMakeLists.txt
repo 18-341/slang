@@ -31,11 +31,13 @@ get_git_version(SLANG_VERSION_PATCH SLANG_VERSION_HASH)
 set(SLANG_VERSION_MAJOR 9)
 set(SLANG_VERSION_MINOR 0)
 
-# Ensure patch version is numeric for CMake VERSION field
-# gitversion.cmake should return numeric values, but add safety check
+# Ensure patch version is numeric for CMake VERSION field gitversion.cmake
+# should return numeric values, but add safety check
 if(NOT SLANG_VERSION_PATCH MATCHES "^[0-9]+$")
-    message(WARNING "SLANG_VERSION_PATCH '${SLANG_VERSION_PATCH}' is not numeric, using 0")
-    set(SLANG_VERSION_PATCH 0)
+  message(
+    WARNING
+      "SLANG_VERSION_PATCH '${SLANG_VERSION_PATCH}' is not numeric, using 0")
+  set(SLANG_VERSION_PATCH 0)
 endif()
 
 set(SLANG_VERSION_STRING
