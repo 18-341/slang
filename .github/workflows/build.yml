@@ -34,7 +34,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ---------- PR validation: build full matrix, no publishing ----------
   build:
+    if: github.event_name == 'pull_request'
     strategy:
       fail-fast: false
       matrix:
@@ -42,7 +44,7 @@ jobs:
           - preset: clang-sanitize
             os: ubuntu-latest
           - preset: gcc-release
-            os: ubuntu-24.04-arm
+            os: ubuntu-latest
           - preset: gcc-11-release
             os: ubuntu-latest
           - preset: gcc-debug-shared
@@ -61,19 +63,28 @@ jobs:
             os: ubuntu-latest
           - preset: wasi-sdk-pthread
             os: ubuntu-latest
-
     runs-on: ${{ matrix.os }}
+    env:
+      CMAKE_C_COMPILER_LAUNCHER: sccache
+      CMAKE_CXX_COMPILER_LAUNCHER: sccache
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+        with: { fetch-depth: 0 }
+
+      - name: Enable sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
+
+      - name: Export CMake launchers
+        run: |
+          echo "CMAKE_C_COMPILER_LAUNCHER=${CMAKE_C_COMPILER_LAUNCHER}"   >> $GITHUB_ENV
+          echo "CMAKE_CXX_COMPILER_LAUNCHER=${CMAKE_CXX_COMPILER_LAUNCHER}" >> $GITHUB_ENV
 
       - name: Install dependencies (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
           curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | sudo gpg --dearmor -o /usr/share/keyrings/llvm-archive-keyring.gpg
           echo "deb [signed-by=/usr/share/keyrings/llvm-archive-keyring.gpg] http://apt.llvm.org/noble/ llvm-toolchain-noble-20 main" | sudo tee /etc/apt/sources.list.d/llvm.list
-          sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
           sudo apt-get update
           sudo apt-get install -y g++-14 g++-11 clang-20 clang-tidy-20
 
@@ -84,8 +95,7 @@ jobs:
       - name: Setup Xcode (macOS)
         if: matrix.os == 'macos-latest'
         uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: 'latest'
+        with: { xcode-version: 'latest' }
 
       - uses: konsumer/install-wasi-sdk@v1
         if: startsWith(matrix.preset, 'wasi-')
@@ -95,11 +105,21 @@ jobs:
 
       - name: Configure
         if: ${{ !startsWith(matrix.preset, 'wasi-') }}
-        run: cmake --preset ${{ matrix.preset }} -DSLANG_CI_BUILD=ON -DSLANG_INCLUDE_UVM_TEST=ON
+        run: |
+          cmake --preset ${{ matrix.preset }} \
+                -DCMAKE_C_COMPILER_LAUNCHER=${{ env.CMAKE_C_COMPILER_LAUNCHER }} \
+                -DCMAKE_CXX_COMPILER_LAUNCHER=${{ env.CMAKE_CXX_COMPILER_LAUNCHER }} \
+                -DSLANG_CI_BUILD=ON -DSLANG_INCLUDE_UVM_TEST=ON
 
       - name: Configure (WASI)
         if: startsWith(matrix.preset, 'wasi-')
-        run: cmake -B build/${{ matrix.preset }} -DCMAKE_TOOLCHAIN_FILE=${WASI_SDK_PATH}/share/cmake/${{ matrix.preset }}.cmake -DSLANG_USE_THREADS=${{ contains(matrix.preset, 'pthread') && 'ON' || 'OFF' }} -DSLANG_CI_BUILD=ON -DSLANG_INCLUDE_UVM_TEST=ON
+        run: |
+          cmake -B build/${{ matrix.preset }} \
+                -DCMAKE_TOOLCHAIN_FILE=${WASI_SDK_PATH}/share/cmake/${{ matrix.preset }}.cmake \
+                -DSLANG_USE_THREADS=${{ contains(matrix.preset, 'pthread') && 'ON' || 'OFF' }} \
+                -DCMAKE_C_COMPILER_LAUNCHER=${{ env.CMAKE_C_COMPILER_LAUNCHER }} \
+                -DCMAKE_CXX_COMPILER_LAUNCHER=${{ env.CMAKE_CXX_COMPILER_LAUNCHER }} \
+                -DSLANG_CI_BUILD=ON -DSLANG_INCLUDE_UVM_TEST=ON
 
       - name: Build
         run: cmake --build build/${{ matrix.preset }} -j8
@@ -107,51 +127,46 @@ jobs:
       - name: Run tests
         run: ctest --test-dir build/${{ matrix.preset }} --output-on-failure --no-tests=error -j8
 
-      - name: Install & Package
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master' && !startsWith(matrix.preset, 'wasi-')
+  # ---------- Post-merge: rebuild ONLY canonical artifacts & publish (3 OS) ----------
+  publish-linux:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+    env:
+      PRESET: gcc-11-release
+      CMAKE_C_COMPILER_LAUNCHER: sccache
+      CMAKE_CXX_COMPILER_LAUNCHER: sccache
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: Enable sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
+
+      - name: Install dependencies (Ubuntu)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-11
+
+      - name: Configure (canonical)
+        run: |
+          cmake --preset ${PRESET} \
+                -DCMAKE_C_COMPILER_LAUNCHER=${{ env.CMAKE_C_COMPILER_LAUNCHER }} \
+                -DCMAKE_CXX_COMPILER_LAUNCHER=${{ env.CMAKE_CXX_COMPILER_LAUNCHER }} \
+                -DSLANG_CI_BUILD=ON -DSLANG_INCLUDE_UVM_TEST=OFF
+
+      - name: Build (canonical)
+        run: cmake --build build/${PRESET} --target slang-tidy -j8
+
+      - name: Install & Package (canonical)
         shell: bash
         run: |
           set -euo pipefail
-          cmake --install build/${{ matrix.preset }} --prefix "$PWD/install/${{ matrix.preset }}"
+          cmake --install build/${PRESET} --prefix "$PWD/install/${PRESET}"
           mkdir -p dist
-          PLATFORM=${{ runner.os }}
-          PRESET=${{ matrix.preset }}
-
-          if [[ "$PLATFORM" == "Windows" ]]; then
-            OUT="slang-${PLATFORM}-${PRESET}.zip"
-            7z a "dist/$OUT" "./install/${PRESET}/*" >/dev/null
-            # Windows checksum via PowerShell
-            pwsh -Command "(Get-FileHash 'dist/$OUT' -Algorithm SHA256).Hash | Out-File -NoNewline 'dist/$OUT.sha256'"
-          else
-            OUT="slang-${PLATFORM}-${PRESET}.tar.gz"
-            tar -C "install/${PRESET}" -czf "dist/$OUT" .
-            # Linux/macOS checksum
-            shasum -a 256 "dist/$OUT" > "dist/$OUT.sha256"
-          fi
-
-      - name: Upload packaged artifact
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master' && !startsWith(matrix.preset, 'wasi-')
-        uses: actions/upload-artifact@v4
-        with:
-          name: pkg-${{ runner.os }}-${{ matrix.preset }}
-          path: dist/*
-
-  publish:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    needs: [build]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: release-bundle
-
-      - name: Flatten bundle
-        run: |
-          mkdir -p dist
-          find release-bundle -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.sha256' \) -exec cp {} dist/ \;
+          OUT="slang-Linux-${PRESET}.tar.gz"
+          tar -C "install/${PRESET}" -czf "dist/$OUT" .
+          shasum -a 256 "dist/$OUT" > "dist/$OUT.sha256"
           ls -l dist
 
       - name: Publish moving release (master-latest)
@@ -159,7 +174,7 @@ jobs:
         with:
           tag_name: master-latest
           name: 341 Slang master-latest
-          body: "Automated build from ${{ github.sha }} on branch ${{ github.ref }}."
+          body: "Canonical rebuilds (Linux/macOS/Windows). Merge: ${{ github.sha }}."
           files: dist/*
           prerelease: true
           draft: false
@@ -169,7 +184,113 @@ jobs:
         with:
           tag_name: master-${{ github.sha }}
           name: 341 Slang master-${{ github.sha }}
-          body: "Immutable build for commit ${{ github.sha }}."
+          body: "Canonical rebuilds for commit ${{ github.sha }}."
           files: dist/*
           prerelease: true
           draft: false
+
+  publish-macos:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: macos-latest
+    needs: [publish-linux]
+    permissions: { contents: write }
+    env:
+      PRESET: macos-release
+      CMAKE_C_COMPILER_LAUNCHER: sccache
+      CMAKE_CXX_COMPILER_LAUNCHER: sccache
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: Enable sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with: { xcode-version: 'latest' }
+
+      - name: Configure (canonical)
+        run: |
+          cmake --preset ${PRESET} \
+                -DCMAKE_C_COMPILER_LAUNCHER=${{ env.CMAKE_C_COMPILER_LAUNCHER }} \
+                -DCMAKE_CXX_COMPILER_LAUNCHER=${{ env.CMAKE_CXX_COMPILER_LAUNCHER }} \
+                -DSLANG_CI_BUILD=ON -DSLANG_INCLUDE_UVM_TEST=OFF
+
+      - name: Build (canonical)
+        run: cmake --build build/${PRESET} --target slang-tidy -j8
+
+      - name: Install & Package (canonical)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmake --install build/${PRESET} --prefix "$PWD/install/${PRESET}"
+          mkdir -p dist
+          OUT="slang-macOS-${PRESET}.tar.gz"
+          tar -C "install/${PRESET}" -czf "dist/$OUT" .
+          shasum -a 256 "dist/$OUT" > "dist/$OUT.sha256"
+          ls -l dist
+
+      - name: Attach to existing release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: master-latest
+          files: dist/*
+
+      - name: Attach to immutable release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: master-${{ github.sha }}
+          files: dist/*
+
+  publish-windows:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: windows-latest
+    needs: [publish-linux]
+    permissions: { contents: write }
+    env:
+      PRESET: win64-release
+      CMAKE_C_COMPILER_LAUNCHER: sccache
+      CMAKE_CXX_COMPILER_LAUNCHER: sccache
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: MSVC env
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Enable sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
+
+      - name: Configure (canonical)
+        shell: bash
+        run: |
+          cmake --preset ${PRESET} \
+                -DCMAKE_C_COMPILER_LAUNCHER=${{ env.CMAKE_C_COMPILER_LAUNCHER }} \
+                -DCMAKE_CXX_COMPILER_LAUNCHER=${{ env.CMAKE_CXX_COMPILER_LAUNCHER }} \
+                -DSLANG_CI_BUILD=ON -DSLANG_INCLUDE_UVM_TEST=OFF
+
+      - name: Build (canonical)
+        run: cmake --build build/%PRESET% --target slang-tidy -j8
+        shell: cmd
+
+      - name: Install & Package (canonical)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmake --install build/${PRESET} --prefix "$PWD/install/${PRESET}"
+          mkdir -p dist
+          OUT="slang-Windows-${PRESET}.zip"
+          7z a "dist/$OUT" "./install/${PRESET}/*" >/dev/null
+          pwsh -Command "(Get-FileHash 'dist/$OUT' -Algorithm SHA256).Hash | Out-File -NoNewline 'dist/$OUT.sha256'"
+
+      - name: Attach to existing release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: master-latest
+          files: dist/*
+
+      - name: Attach to immutable release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: master-${{ github.sha }}
+          files: dist/*
