@@ -37,6 +37,10 @@ struct MainVisitor : public TidyVisitor, ASTVisitor<MainVisitor, true, true, fal
                 return;
             }
 
+            if (isInstanceParameterOverride(expr)) {
+                return;
+            }
+
             if (isBitSelect(expr)) {
                 return;
             }
@@ -110,6 +114,23 @@ private:
                 if (parent->kind == SyntaxKind::ParameterDeclarationStatement ||
                     parent->kind == SyntaxKind::ParameterDeclaration ||
                     parent->kind == SyntaxKind::ParameterPortList) {
+                    return true;
+                }
+                parent = parent->parent;
+                depth++;
+            }
+        }
+        return false;
+    }
+
+    bool isInstanceParameterOverride(const IntegerLiteral& expr) {
+        if (auto syntax = expr.syntax) {
+            auto parent = syntax->parent;
+            int depth = 0;
+            while (parent && depth < 5) {
+                if (parent->kind == SyntaxKind::ParameterValueAssignment ||
+                    parent->kind == SyntaxKind::OrderedParamAssignment ||
+                    parent->kind == SyntaxKind::NamedParamAssignment) {
                     return true;
                 }
                 parent = parent->parent;
