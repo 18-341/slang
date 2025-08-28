@@ -130,3 +130,31 @@ endmodule
 )");
     CHECK(result);
 }
+
+TEST_CASE("ConstantFormatting: Exclusions - instance parameter overrides allowed") {
+    auto result = runCheckTest("ConstantFormatting", R"(
+module top ();
+    // Parameterized module instantiation with override values
+    memory #(8, 256) mem_inst (.clk(clk), .data(data));
+    fifo #(.WIDTH(4), .DEPTH(16)) fifo_inst (.clk(clk));
+    counter #(10) count_inst (.clk(clk));
+endmodule
+
+module memory #(parameter WIDTH = 8, parameter DEPTH = 256) (
+    input clk,
+    input [WIDTH-1:0] data
+);
+endmodule
+
+module fifo #(parameter WIDTH = 8, parameter DEPTH = 16) (
+    input clk
+);
+endmodule
+
+module counter #(parameter MAX_COUNT = 100) (
+    input clk
+);
+endmodule
+)");
+    CHECK(result);
+}
