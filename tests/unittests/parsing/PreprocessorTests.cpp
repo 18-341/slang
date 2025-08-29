@@ -2800,3 +2800,55 @@ endmodule
     auto result = SyntaxPrinter::printFile(*tree);
     CHECK(result == text);
 }
+
+TEST_CASE("Invalid macro concatenation regress -- GH #1484") {
+    auto& text = R"(
+`define S0 ````n
+module m;
+    int i = `S0;
+endmodule
+)";
+
+    auto& expected = R"(
+module m;
+    int i = n;
+endmodule
+)";
+
+    std::string result = preprocess(text);
+    CHECK(result == expected);
+
+    REQUIRE(diagnostics.size() == 1);
+    CHECK(diagnostics[0].code == diag::IgnoredMacroPaste);
+}
+
+TEST_CASE("Macro arg implicit concat after expansion") {
+    auto& text = R"(
+`define M1 t
+`define M2(ARG) foo`__LINE__ = 1; for`M1``ARG = 2;
+
+module m;
+    int foo9;
+    int fort4K;
+    initial begin
+        `M2(4K)
+    end
+endmodule
+)";
+
+    std::string result = preprocess(text);
+    CHECK(result == R"(
+module m;
+    int foo9;
+    int fort4K;
+    initial begin
+        foo9 = 1; fort4K = 2;
+    end
+endmodule
+)");
+
+    auto tree = SyntaxTree::fromText(text);
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
