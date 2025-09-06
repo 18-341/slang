@@ -22,6 +22,7 @@
 #include "slang/diagnostics/StatementsDiags.h"
 #include "slang/diagnostics/SysFuncsDiags.h"
 #include "slang/diagnostics/TextDiagnosticClient.h"
+#include "slang/driver/SourceLoader.h"
 #include "slang/parsing/Parser.h"
 #include "slang/parsing/Preprocessor.h"
 #include "slang/syntax/SyntaxPrinter.h"
@@ -39,6 +40,34 @@ using namespace ast;
 using namespace parsing;
 using namespace syntax;
 using namespace analysis;
+
+// clang-format off
+#define VCS_COMP_FLAGS \
+    CompilationFlags::AllowHierarchicalConst, \
+    CompilationFlags::RelaxEnumConversions, \
+    CompilationFlags::AllowUseBeforeDeclare, \
+    CompilationFlags::RelaxStringConversions, \
+    CompilationFlags::AllowRecursiveImplicitCall, \
+    CompilationFlags::AllowBareValParamAssignment, \
+    CompilationFlags::AllowSelfDeterminedStreamConcat, \
+    CompilationFlags::AllowMergingAnsiPorts
+
+static constexpr auto vcsCompFlags = {VCS_COMP_FLAGS};
+static constexpr auto allCompFlags = {
+    VCS_COMP_FLAGS,
+    CompilationFlags::AllowTopLevelIfacePorts,
+    CompilationFlags::AllowUnnamedGenerate
+};
+
+#define VCS_ANALYSIS_FLAGS \
+    AnalysisFlags::AllowMultiDrivenLocals
+
+static constexpr auto vcsAnalysisFlags = {VCS_ANALYSIS_FLAGS};
+static constexpr auto allAnalysisFlags = {
+    VCS_ANALYSIS_FLAGS,
+    AnalysisFlags::AllowDupInitialDrivers
+};
+// clang-format on
 
 Driver::Driver() : diagEngine(sourceManager), sourceLoader(sourceManager) {
     textDiagClient = std::make_shared<TextDiagnosticClient>();
@@ -73,6 +102,10 @@ void Driver::addStandardArgs() {
         },
         "Additional system include search paths", "<dir-pattern>[,...]",
         CommandLineFlags::CommaList);
+
+    cmdLine.add("--disable-local-includes", options.disableLocalIncludes,
+                "Disables \"local\" include path lookup, where include directives search "
+                "relative to the file containing the directive first");
 
     // Preprocessor
     cmdLine.add("-D,--define-macro,+define", options.defines,
@@ -159,10 +192,12 @@ void Driver::addStandardArgs() {
                 "Maximum number of UDP coverage notes that will be generated for a single "
                 "warning about missing edge transitions",
                 "<limit>");
-    cmdLine.add("--compat", options.compat,
-                "Attempt to increase compatibility with the specified tool", "vcs");
-    cmdLine.add("-T,--timing", options.minTypMax,
-                "Select which value to consider in min:typ:max expressions", "min|typ|max");
+    cmdLine.addEnum<CompatMode, CompatMode_traits>(
+        "--compat", options.compat, "Attempt to increase compatibility with the specified tool",
+        "<mode>");
+    cmdLine.addEnum<MinTypMax, MinTypMax_traits>(
+        "-T,--timing", options.minTypMax,
+        "Select which value to consider in min:typ:max expressions", "min|typ|max");
     cmdLine.add("--timescale", options.timeScale,
                 "Default time scale to use for design elements that don't specify one explicitly",
                 "<base>/<precision>");
@@ -243,8 +278,9 @@ void Driver::addStandardArgs() {
                 "Show macro expansion backtraces in diagnostic output");
     cmdLine.add("--diag-abs-paths", options.diagAbsPaths,
                 "Display absolute paths to files in diagnostic output");
-    cmdLine.add("--diag-hierarchy", options.diagHierarchy,
-                "Show hierarchy locations in diagnostic output", "always|never|auto");
+    cmdLine.addEnum<ShowHierarchyPathOption, ShowHierarchyPathOption_traits>(
+        "--diag-hierarchy", options.diagHierarchy, "Show hierarchy locations in diagnostic output",
+        "always|never|auto");
     cmdLine.add("--diag-json", options.diagJson,
                 "Dump all diagnostics in JSON format to the specified file, or '-' for stdout",
                 "<file>", CommandLineFlags::FilePath);
@@ -359,6 +395,26 @@ void Driver::addStandardArgs() {
         "One or more command files containing additional program options. "
         "Paths in the file are considered relative to the file itself.",
         "<file-pattern>[,...]", CommandLineFlags::CommaList);
+
+    // Dependency files
+    cmdLine.add("--depfile-target", options.depfileTarget,
+                "Output depfile lists in makefile format, creating the file with "
+                "`<target>:` as the make target");
+    cmdLine.add("--Mall,--all-deps", options.allDepfile,
+                "Generate dependency file list of all files used during parsing", "<file>",
+                CommandLineFlags::FilePath);
+    cmdLine.add("--Minclude,--include-deps", options.includeDepfile,
+                "Generate dependency file list of just include files that were "
+                "used during parsing",
+                "<file>", CommandLineFlags::FilePath);
+    cmdLine.add("--Mmodule,--module-deps", options.moduleDepfile,
+                "Generate dependency file list of source files parsed, excluding include files",
+                "<file>", CommandLineFlags::FilePath);
+    cmdLine.add("--depfile-trim", options.depfileTrim,
+                "Trim unreferenced files before generating dependency lists "
+                "(also implies --depfile-sort)");
+    cmdLine.add("--depfile-sort", options.depfileSort,
+                "Topologically sort the emitted files in dependency lists");
 
     // Analysis modifiers
     auto addAnalysisFlag = [&](AnalysisFlags flag, std::string_view name, std::string_view desc) {
@@ -487,46 +543,28 @@ bool Driver::processOptions() {
     }
 
     if (options.compat.has_value()) {
-        if (options.compat == "vcs") {
-            auto vcsCompFlags = {CompilationFlags::AllowHierarchicalConst,
-                                 CompilationFlags::AllowUseBeforeDeclare,
-                                 CompilationFlags::RelaxEnumConversions,
-                                 CompilationFlags::RelaxStringConversions,
-                                 CompilationFlags::AllowRecursiveImplicitCall,
-                                 CompilationFlags::AllowBareValParamAssignment,
-                                 CompilationFlags::AllowSelfDeterminedStreamConcat,
-                                 CompilationFlags::AllowMergingAnsiPorts};
-
-            for (auto flag : vcsCompFlags) {
-                auto& option = options.compilationFlags.at(flag);
-                if (!option.has_value())
-                    option = true;
-            }
-
-            auto vcsAnalysisFlags = {AnalysisFlags::AllowMultiDrivenLocals};
-            for (auto flag : vcsAnalysisFlags) {
-                auto& option = options.analysisFlags.at(flag);
-                if (!option.has_value())
-                    option = true;
-            }
+        std::initializer_list<CompilationFlags> compFlags;
+        std::initializer_list<AnalysisFlags> analysisFlags;
+        if (options.compat == CompatMode::Vcs) {
+            compFlags = vcsCompFlags;
+            analysisFlags = vcsAnalysisFlags;
         }
         else {
-            printError(fmt::format("invalid value for compat option: '{}'", *options.compat));
-            return false;
+            compFlags = allCompFlags;
+            analysisFlags = allAnalysisFlags;
         }
-    }
 
-    if (options.minTypMax.has_value() && options.minTypMax != "min" && options.minTypMax != "typ" &&
-        options.minTypMax != "max") {
-        printError(fmt::format("invalid value for timing option: '{}'", *options.minTypMax));
-        return false;
-    }
+        for (auto flag : compFlags) {
+            auto& option = options.compilationFlags.at(flag);
+            if (!option.has_value())
+                option = true;
+        }
 
-    if (options.diagHierarchy.has_value() && options.diagHierarchy != "always" &&
-        options.diagHierarchy != "never" && options.diagHierarchy != "auto") {
-        printError(
-            fmt::format("invalid value for diag-hierarchy option: '{}'", *options.diagHierarchy));
-        return false;
+        for (auto flag : analysisFlags) {
+            auto& option = options.analysisFlags.at(flag);
+            if (!option.has_value())
+                option = true;
+        }
     }
 
     if (options.librariesInheritMacros == true && !options.singleUnit.value_or(false)) {
@@ -575,6 +613,9 @@ bool Driver::processOptions() {
             return false;
     }
 
+    if (options.disableLocalIncludes == true)
+        sourceManager.setDisableLocalIncludes(true);
+
     if (!reportLoadErrors())
         return false;
 
@@ -604,11 +645,7 @@ bool Driver::processOptions() {
     tdc.showIncludeStack(options.diagIncludeStack.value_or(true));
     tdc.showMacroExpansion(options.diagMacroExpansion.value_or(true));
     tdc.showAbsPaths(options.diagAbsPaths.value_or(false));
-
-    if (options.diagHierarchy == "always")
-        tdc.showHierarchyInstance(ShowHierarchyPathOption::Always);
-    else if (options.diagHierarchy == "never")
-        tdc.showHierarchyInstance(ShowHierarchyPathOption::Never);
+    tdc.showHierarchyInstance(options.diagHierarchy.value_or(ShowHierarchyPathOption::Auto));
 
     diagEngine.setErrorLimit((int)options.errorLimit.value_or(20));
 
@@ -617,11 +654,13 @@ bool Driver::processOptions() {
     // suppressible warning that we promote to an error by default. This allows
     // the user to turn this back into a warning, or turn it off altogether.
 
-    diagEngine.setSeverity(diag::DuplicateDefinition, DiagnosticSeverity::Error);
-    diagEngine.setSeverity(diag::BadProceduralForce, DiagnosticSeverity::Error);
-    diagEngine.setSeverity(diag::UnknownSystemName, DiagnosticSeverity::Error);
+    if (options.compat != CompatMode::All) {
+        diagEngine.setSeverity(diag::DuplicateDefinition, DiagnosticSeverity::Error);
+        diagEngine.setSeverity(diag::BadProceduralForce, DiagnosticSeverity::Error);
+        diagEngine.setSeverity(diag::UnknownSystemName, DiagnosticSeverity::Error);
+    }
 
-    if (options.compat == "vcs") {
+    if (options.compat == CompatMode::Vcs || options.compat == CompatMode::All) {
         diagEngine.setSeverity(diag::StaticInitializerMustBeExplicit, DiagnosticSeverity::Ignored);
         diagEngine.setSeverity(diag::ImplicitConvert, DiagnosticSeverity::Ignored);
         diagEngine.setSeverity(diag::BadFinishNum, DiagnosticSeverity::Ignored);
@@ -760,54 +799,181 @@ void Driver::reportMacros() {
     }
 }
 
-std::vector<fs::path> Driver::getDepfiles(bool includesOnly) const {
-    flat_hash_set<fs::path> includeSet;
-    SLANG_ASSERT(!syntaxTrees.empty());
+static std::string getProximatePathStr(const fs::path& path) {
+    std::error_code ec;
+    auto file = fs::proximate(path, ec);
+    if (ec)
+        file = path;
 
-    for (auto& tree : syntaxTrees) {
-        for (auto& inc : tree->getIncludeDirectives()) {
-            if (inc.isSystem)
-                continue;
-
-            includeSet.insert(sourceManager.getFullPath(inc.buffer.id));
-        }
-    }
-
-    std::vector<fs::path> includePaths(includeSet.begin(), includeSet.end());
-    if (includesOnly)
-        return includePaths;
-
-    auto allPaths = sourceLoader.getFilePaths();
-    allPaths.reserve(allPaths.size() + includePaths.size());
-    allPaths.insert(allPaths.end(), includePaths.begin(), includePaths.end());
-    return allPaths;
+    return getU8Str(file);
 }
 
-std::string Driver::serializeDepfiles(const std::vector<fs::path>& files,
-                                      const std::optional<std::string>& depfileTarget) {
-    std::vector<std::string> paths;
-    paths.reserve(files.size());
+static std::vector<const SyntaxTree*> getSortedDependencies(
+    Driver& driver, std::span<std::shared_ptr<SyntaxTree>> trees, bool trim) {
 
-    for (const auto& file : files) {
-        auto relPath = std::filesystem::relative(file, std::filesystem::current_path());
-        paths.push_back(getU8Str(relPath));
+    // Map all declared modules, classes, etc to their containing syntax trees.
+    flat_hash_map<std::string_view, const SyntaxTree*> nameToTree;
+    for (auto& tree : trees) {
+        for (auto name : tree->getMetadata().getDeclaredSymbols())
+            nameToTree.emplace(name, tree.get());
     }
 
-    std::sort(paths.begin(), paths.end());
+    struct Deps {
+        std::vector<const SyntaxTree*> childTrees;
+        std::vector<std::string_view> missingNames;
+    };
+    flat_hash_map<const SyntaxTree*, Deps> treeToDeps;
+    flat_hash_map<std::string_view, const SyntaxTree*> missingToTree;
 
-    FormatBuffer buffer;
-    if (depfileTarget) {
-        buffer.format("{}:", *depfileTarget);
-        for (const auto& file : paths)
-            buffer.format(" {}", file);
-        buffer.append("\n");
+    // For each syntax tree, build a list of child trees that depend on it
+    // based on references to modules, classes, etc.
+    for (auto& tree : trees) {
+        Deps deps;
+        flat_hash_set<const SyntaxTree*> seenTrees;
+        flat_hash_set<std::string_view> seenMissing;
+
+        for (auto ref : tree->getMetadata().getReferencedSymbols()) {
+            if (auto it = nameToTree.find(ref); it != nameToTree.end()) {
+                if (seenTrees.insert(it->second).second)
+                    deps.childTrees.push_back(it->second);
+            }
+            else if (seenMissing.insert(ref).second) {
+                deps.missingNames.push_back(ref);
+                missingToTree.emplace(ref, tree.get());
+            }
+        }
+
+        treeToDeps.emplace(tree.get(), std::move(deps));
+    }
+
+    // Topologically sort the trees based on their dependencies.
+    std::vector<const SyntaxTree*> results;
+    flat_hash_set<const SyntaxTree*> visited;
+    std::function<void(const SyntaxTree*)> dfsVisit = [&](const SyntaxTree* tree) {
+        if (!visited.insert(tree).second)
+            return;
+
+        if (auto it = treeToDeps.find(tree); it != treeToDeps.end()) {
+            for (auto dep : it->second.childTrees)
+                dfsVisit(dep);
+
+            for (auto name : it->second.missingNames) {
+                driver.printWarning(fmt::format("'{}' not found in any source file", name));
+
+                // Print one representative note for where this is referenced.
+                if (auto missingIt = missingToTree.find(name); missingIt != missingToTree.end()) {
+                    auto buffers = missingIt->second->getSourceBufferIds();
+                    if (!buffers.empty()) {
+                        driver.printNote(fmt::format(
+                            "referenced in file '{}'",
+                            getProximatePathStr(driver.sourceManager.getFullPath(buffers[0]))));
+                    }
+                }
+            }
+        }
+
+        results.push_back(tree);
+    };
+
+    // If we are trimming, the initial set of trees to traverse is based on
+    // the user specified set of top modules. Otherwise, we use all trees.
+    if (trim) {
+        if (driver.options.topModules.empty()) {
+            driver.printWarning("using --depfile-trim with no top modules specified will always "
+                                "result in an empty dependency file");
+        }
+
+        for (auto& name : driver.options.topModules) {
+            if (auto it = nameToTree.find(name); it != nameToTree.end()) {
+                dfsVisit(it->second);
+            }
+            else {
+                driver.printWarning(
+                    fmt::format("top module '{}' not found in any source file", name));
+            }
+        }
     }
     else {
-        for (const auto& file : paths)
-            buffer.format("{}\n", file);
+        for (auto& tree : trees)
+            dfsVisit(tree.get());
     }
 
-    return buffer.str();
+    return results;
+}
+
+void Driver::optionallyWriteDepFiles() {
+    if (!options.includeDepfile && !options.moduleDepfile && !options.allDepfile)
+        return;
+
+    std::vector<const SyntaxTree*> depTrees;
+    if (options.depfileTrim == true || options.depfileSort == true) {
+        depTrees = getSortedDependencies(*this, syntaxTrees, options.depfileTrim == true);
+    }
+    else {
+        depTrees.reserve(syntaxTrees.size());
+        for (auto& tree : syntaxTrees)
+            depTrees.push_back(tree.get());
+    }
+
+    auto writeDepFile = [&](const std::vector<std::string>& paths, std::string_view fileName) {
+        FormatBuffer buffer;
+        if (options.depfileTarget)
+            buffer.format("{}: ", *options.depfileTarget);
+
+        for (auto& path : paths) {
+            buffer.append(path);
+
+            // If depfileTarget is provided the delimiter is a space, otherwise a newline.
+            if (options.depfileTarget)
+                buffer.append(" ");
+            else
+                buffer.append("\n");
+        }
+
+        if (options.depfileTarget) {
+            buffer.pop_back();
+            buffer.append("\n");
+        }
+
+        OS::writeFile(fileName, buffer.str());
+    };
+
+    std::vector<std::string> includePaths;
+    flat_hash_set<fs::path> seenPaths;
+    if (options.includeDepfile || options.allDepfile) {
+        for (auto& tree : depTrees) {
+            for (auto& inc : tree->getIncludeDirectives()) {
+                if (inc.isSystem)
+                    continue;
+
+                auto p = sourceManager.getFullPath(inc.buffer.id);
+                if (seenPaths.insert(p).second)
+                    includePaths.emplace_back(getProximatePathStr(p));
+            }
+        }
+
+        if (options.includeDepfile)
+            writeDepFile(includePaths, *options.includeDepfile);
+    }
+
+    std::vector<std::string> modulePaths;
+    if (options.moduleDepfile || options.allDepfile) {
+        for (auto& tree : depTrees) {
+            for (auto bufferId : tree->getSourceBufferIds()) {
+                auto path = sourceManager.getFullPath(bufferId);
+                if (!path.empty())
+                    modulePaths.emplace_back(getProximatePathStr(path));
+            }
+        }
+
+        if (options.moduleDepfile)
+            writeDepFile(modulePaths, *options.moduleDepfile);
+    }
+
+    if (options.allDepfile) {
+        includePaths.insert(includePaths.end(), modulePaths.begin(), modulePaths.end());
+        writeDepFile(includePaths, *options.allDepfile);
+    }
 }
 
 bool Driver::parseAllSources() {
@@ -900,6 +1066,8 @@ void Driver::addCompilationOptions(Bag& bag) const {
         coptions.maxUDPCoverageNotes = *options.maxUDPCoverageNotes;
     if (options.errorLimit.has_value())
         coptions.errorLimit = *options.errorLimit * 2;
+    if (options.minTypMax.has_value())
+        coptions.minTypMax = *options.minTypMax;
 
     for (auto& [flag, value] : options.compilationFlags) {
         if (value == true)
@@ -912,15 +1080,6 @@ void Driver::addCompilationOptions(Bag& bag) const {
         coptions.paramOverrides.emplace_back(opt);
     for (auto& lib : options.libraryOrder)
         coptions.defaultLiblist.emplace_back(lib);
-
-    if (options.minTypMax.has_value()) {
-        if (options.minTypMax == "min")
-            coptions.minTypMax = MinTypMax::Min;
-        else if (options.minTypMax == "typ")
-            coptions.minTypMax = MinTypMax::Typ;
-        else if (options.minTypMax == "max")
-            coptions.minTypMax = MinTypMax::Max;
-    }
 
     if (options.timeScale.has_value())
         coptions.defaultTimeScale = TimeScale::fromString(*options.timeScale);
@@ -1136,6 +1295,12 @@ void Driver::printError(const std::string& message) {
 
 void Driver::printWarning(const std::string& message) {
     OS::printE(fg(textDiagClient->warningColor), "warning: ");
+    OS::printE(message);
+    OS::printE("\n");
+}
+
+void Driver::printNote(const std::string& message) {
+    OS::printE(fg(textDiagClient->noteColor), "  note: ");
     OS::printE(message);
     OS::printE("\n");
 }

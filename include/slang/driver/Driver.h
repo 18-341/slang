@@ -24,6 +24,7 @@ namespace slang {
 class JsonDiagnosticClient;
 class JsonWriter;
 class TextDiagnosticClient;
+enum class ShowHierarchyPathOption;
 
 } // namespace slang
 
@@ -46,6 +47,10 @@ enum class AnalysisFlags;
 } // namespace slang::analysis
 
 namespace slang::driver {
+
+#define COMPAT(x) x(Vcs) x(All)
+SLANG_ENUM(CompatMode, COMPAT)
+#undef COMPAT
 
 /// @brief A top-level class that handles argument parsing, option preparation,
 /// and invoking various parts of the slang compilation process.
@@ -129,6 +134,10 @@ public:
         /// A set of options controlling translate-off comment directives.
         std::vector<std::string> translateOffOptions;
 
+        /// Disables "local" include path lookup, where include directives search
+        /// relative to the file containing the directive first.
+        std::optional<bool> disableLocalIncludes;
+
         /// @}
         /// @name Parsing
         /// @{
@@ -173,13 +182,11 @@ public:
         /// warning about missing edge transitions.
         std::optional<uint32_t> maxUDPCoverageNotes;
 
-        /// A string indicating a member of @a CompatMode to use for tailoring
-        /// other compilation options.
-        std::optional<std::string> compat;
+        /// Preset compatibility modes for setting other options in one easy step.
+        std::optional<CompatMode> compat;
 
-        /// A string indicating a member of @a MinTypMax to indicate which set
-        /// of (min:typ:max) expressions is valid for this compilation.
-        std::optional<std::string> minTypMax;
+        /// Indicates which set of (min:typ:max) expressions is valid for this compilation.
+        std::optional<ast::MinTypMax> minTypMax;
 
         /// A string that indicates the default time scale to use for
         /// any design elements that don't specify one explicitly.
@@ -235,9 +242,8 @@ public:
         /// If true, display absolute paths to files in printed diagnostics.
         std::optional<bool> diagAbsPaths;
 
-        /// One of the ShowHierarchyPathOption values that control whether to
-        /// include hierarchy paths in printed diagnostics.
-        std::optional<std::string> diagHierarchy;
+        /// Controls whether to include hierarchy paths in printed diagnostics.
+        std::optional<ShowHierarchyPathOption> diagHierarchy;
 
         /// If set, the path to a JSON file that will be written with diagnostic information.
         /// Can be '-' to indicate that the JSON should be written to stdout.
@@ -259,6 +265,28 @@ public:
 
         /// A set of extensions that will be used to exclude files.
         flat_hash_set<std::string> excludeExts;
+
+        /// @}
+        /// @name Dependency files
+        /// @{
+
+        /// Optional target name to include when writing dependency files.
+        std::optional<std::string> depfileTarget;
+
+        /// If true, trim unreferenced files before generating dependency lists.
+        std::optional<bool> depfileTrim;
+
+        /// If true, topologically sort files before generating dependency lists.
+        std::optional<bool> depfileSort;
+
+        /// Output path for a dependency file containing all dependencies.
+        std::optional<std::string> allDepfile;
+
+        /// Output path for a dependency file containing include file dependencies.
+        std::optional<std::string> includeDepfile;
+
+        /// Output path for a dependency file containing module source file dependencies.
+        std::optional<std::string> moduleDepfile;
 
         /// @}
         /// @name Analysis
@@ -342,17 +370,9 @@ public:
     /// Prints all macros from all loaded buffers to stdout.
     void reportMacros();
 
-    /// @brief Returns a list of all files that were loaded by the driver.
-    /// @param includesOnly If true, only include files that were loaded are returned.
-    std::vector<std::filesystem::path> getDepfiles(bool includesOnly = false) const;
-
-    /// @brief Serializes the given list of files into a depfile format.
-    /// @param files The list of files to serialize.
-    /// @param depfileTarget The target file to use; also implies that makefile format should be
-    /// used, with this string as the target. If not set, it will serialize in filelist format, with
-    /// one file per line.
-    std::string serializeDepfiles(const std::vector<std::filesystem::path>& files,
-                                  const std::optional<std::string>& depfileTarget);
+    /// Writes any dependency files that have been requested via command line options.
+    /// (if such options have not been specified this method does nothing).
+    void optionallyWriteDepFiles();
 
     /// @brief Parses all loaded buffers into syntax trees and appends the resulting trees
     /// to the @a syntaxTrees list.
@@ -397,14 +417,21 @@ public:
     /// @returns true if compilation succeeded and false if errors were encountered.
     [[nodiscard]] bool runFullCompilation(bool quiet = false);
 
+    /// Prints an error to stderr with appropriate terminal colors.
+    void printError(const std::string& message);
+
+    /// Prints a warning to stderr with appropriate terminal colors.
+    void printWarning(const std::string& message);
+
+    /// Prints a note to stderr with appropriate terminal colors.
+    void printNote(const std::string& message);
+
 private:
     bool parseUnitListing(std::string_view text);
     void addLibraryFiles(std::string_view pattern);
     void addParseOptions(Bag& bag) const;
     void addCompilationOptions(Bag& bag) const;
     bool reportLoadErrors();
-    void printError(const std::string& message);
-    void printWarning(const std::string& message);
 
     bool anyFailedLoads = false;
     flat_hash_set<std::filesystem::path> activeCommandFiles;
